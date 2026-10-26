@@ -8,63 +8,76 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      margin: 0; padding: 20px; min-height: 100vh;
-      font-family: Arial, sans-serif;
-      background: #f1f5f9; color: #172033;
+      margin: 0; padding: 18px; background: #f1f5f9;
+      color: #172033; font-family: Arial, sans-serif;
     }
     .card {
-      max-width: 520px; margin: 30px auto; padding: 26px;
+      max-width: 720px; margin: 20px auto; padding: 24px;
       background: white; border-radius: 16px;
       box-shadow: 0 8px 30px #0f172a14;
     }
-    h1 { font-size: 24px; margin-top: 0; }
-    p { color: #64748b; line-height: 1.5; }
-    label { display: block; margin: 16px 0 6px; font-weight: 600; }
-    input, textarea {
-      width: 100%; padding: 12px;
+    h1 { font-size: 25px; margin-top: 0; }
+    h2 { font-size: 20px; margin-top: 0; }
+    label { display: block; margin: 15px 0 7px; font-weight: 600; }
+    input, textarea, select {
+      display: block; width: 100%; padding: 12px;
       border: 1px solid #cbd5e1; border-radius: 8px;
-      font-size: 16px; font-family: inherit;
+      background: white; font: inherit;
     }
-    textarea { min-height: 85px; resize: vertical; }
+    textarea { min-height: 75px; resize: vertical; }
     button {
-      width: 100%; padding: 12px; margin-top: 16px;
-      border: 0; border-radius: 8px;
-      background: #166534; color: white;
-      font-size: 16px; cursor: pointer;
+      padding: 12px 15px; margin-top: 14px;
+      border: 0; border-radius: 8px; background: #166534;
+      color: white; font-size: 15px; cursor: pointer;
     }
     button:disabled { opacity: .6; cursor: wait; }
-    #logout { background: #475569; }
-    #status { white-space: pre-wrap; overflow-wrap: anywhere; }
-    .hidden { display: none; }
-    .note { font-size: 13px; }
+    button.secondary { background: #475569; }
+    button.danger { background: #b91c1c; }
+    .full { width: 100%; }
+    .section {
+      margin-top: 24px; padding-top: 22px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .hidden { display: none !important; }
+    #status { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+    .muted { color: #64748b; font-size: 14px; line-height: 1.5; }
+    .result {
+      padding: 14px; margin-top: 14px;
+      border: 1px solid #bbf7d0; border-radius: 10px;
+      background: #f0fdf4; overflow-wrap: anywhere;
+    }
+    .code-text { font-family: monospace; font-size: 17px; font-weight: bold; }
+    .item {
+      border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 14px; margin-top: 12px; overflow-wrap: anywhere;
+    }
+    .item p { margin: 7px 0; line-height: 1.5; }
+    .item button { margin-right: 6px; }
   </style>
 </head>
 <body>
-  <main class="card">
-    <h1>🔐 Private Video Gallery</h1>
-    <p>सुरक्षित Admin Panel</p>
+<main class="card">
+  <h1>🔐 Private Video Gallery</h1>
+  <p class="muted">सुरक्षित Admin Panel</p>
 
-    <form id="loginForm">
-      <label for="email">ईमेल</label>
-      <input id="email" type="email" autocomplete="username"
-        required placeholder="Admin email">
+  <form id="loginForm">
+    <label for="email">ईमेल</label>
+    <input id="email" type="email" autocomplete="username"
+      required placeholder="Admin email">
 
-      <label for="password">पासवर्ड</label>
-      <input id="password" type="password"
-        autocomplete="current-password" required
-        placeholder="अपना पासवर्ड">
+    <label for="password">पासवर्ड</label>
+    <input id="password" type="password"
+      autocomplete="current-password" required placeholder="पासवर्ड">
 
-      <button id="loginBtn" type="submit">Login करें</button>
-    </form>
+    <button id="loginBtn" class="full" type="submit">Login करें</button>
+  </form>
 
-    <section id="adminArea" class="hidden">
-      <h2>Admin Login सफल ✅</h2>
-      <p id="adminEmail"></p>
+  <section id="adminArea" class="hidden">
+    <h2>Admin Login सफल ✅</h2>
+    <p id="adminEmail" class="muted"></p>
 
-      <hr>
-
+    <section class="section">
       <h2>🎬 नया वीडियो अपलोड करें</h2>
-
       <form id="uploadForm">
         <label for="videoTitle">वीडियो का नाम</label>
         <input id="videoTitle" required maxlength="150"
@@ -72,240 +85,446 @@
 
         <label for="videoDescription">वीडियो का विवरण</label>
         <textarea id="videoDescription" maxlength="2000"
-          placeholder="वीडियो के बारे में लिखें (वैकल्पिक)"></textarea>
+          placeholder="विवरण (वैकल्पिक)"></textarea>
 
         <label for="videoFile">कंप्यूटर से वीडियो चुनें</label>
         <input id="videoFile" type="file"
-          accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v"
-          required>
+          accept=".mp4,.webm,.mov,.m4v" required>
 
-        <p class="note">
-          वीडियो Private Storage में अपलोड होगा। बड़ी फ़ाइलों के लिए
-          Storage की फ़ाइल-साइज़ सीमा लागू होगी।
-        </p>
-
-        <button id="uploadBtn" type="submit">
+        <button id="uploadBtn" class="full" type="submit">
           वीडियो अपलोड करें
         </button>
       </form>
-
-      <button id="logout" type="button">Logout</button>
     </section>
 
-    <p id="status" role="status" aria-live="polite"></p>
-  </main>
+    <section class="section">
+      <h2>🔑 नया Access Code बनाएँ</h2>
+      <form id="codeForm">
+        <label for="videoSelect">वीडियो चुनें</label>
+        <select id="videoSelect" required>
+          <option value="">पहले वीडियो सूची लोड करें</option>
+        </select>
 
-  <script type="module">
-    import { createClient } from
-      "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+        <label for="expiry">Expiry तारीख और समय (वैकल्पिक)</label>
+        <input id="expiry" type="datetime-local">
+        <p class="muted">
+          समय आपके कंप्यूटर के स्थानीय समय के अनुसार चुना जाएगा।
+          खाली छोड़ने पर कोड की समय-सीमा नहीं होगी।
+        </p>
 
-    const SUPABASE_URL =
-      "https://wiwljnfcpcbjvvcewpye.supabase.co";
+        <button id="generateBtn" class="full" type="submit">
+          Generate Access Code
+        </button>
+      </form>
 
-    // यहाँ केवल अपनी public sb_publishable_... key डालें।
-    // Service role या secret key यहाँ कभी न डालें।
-    const SUPABASE_ANON_KEY =
-      "PASTE_YOUR_PUBLIC_ANON_KEY_HERE";
+      <div id="newCodeResult" class="result hidden">
+        <strong>✅ नया Access Code</strong>
+        <p id="newCode" class="code-text"></p>
+        <p class="muted">
+          इस कोड को अभी कॉपी करके सुरक्षित रख लें।
+          पूरा कोड बाद में दोबारा नहीं दिखाया जाएगा।
+        </p>
+        <button id="copyCodeBtn" type="button">कोड कॉपी करें</button>
+      </div>
 
-    const supabase = createClient(
-      SUPABASE_URL, SUPABASE_ANON_KEY
-    );
+      <button id="refreshBtn" class="secondary full" type="button">
+        वीडियो और कोड की सूची Refresh करें
+      </button>
+    </section>
 
-    const form = document.getElementById("loginForm");
-    const adminArea = document.getElementById("adminArea");
-    const status = document.getElementById("status");
-    const loginBtn = document.getElementById("loginBtn");
-    const uploadBtn = document.getElementById("uploadBtn");
+    <section class="section">
+      <h2>📋 Access Code की सूची</h2>
+      <p class="muted">
+        यहाँ कोड का पूरा टेक्स्ट नहीं दिखेगा। सुरक्षा के लिए केवल
+        स्थिति, संबंधित वीडियो और समय दिखाया जाएगा।
+      </p>
+      <div id="codeList"></div>
+    </section>
 
-    let busy = false;
+    <button id="logout" class="secondary full" type="button">Logout</button>
+  </section>
 
-    async function checkAdmin() {
-      const { data: { session } } =
-        await supabase.auth.getSession();
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
 
-      if (!session) {
-        form.classList.remove("hidden");
-        adminArea.classList.add("hidden");
-        return false;
-      }
+<script type="module">
+import { createClient } from
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-      const { data, error } = await supabase.functions.invoke(
-        "gallery-admin",
-        { body: { action: "check" } }
+const SUPABASE_URL =
+  "https://wiwljnfcpcbjvvcewpye.supabase.co";
+
+// अपनी public sb_publishable_... key यहाँ रखें।
+const SUPABASE_ANON_KEY = "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = (id) => document.getElementById(id);
+const form = $("loginForm");
+const adminArea = $("adminArea");
+const status = $("status");
+
+let busy = false;
+let videos = [];
+let accessCodes = [];
+let displayedNewCode = "";
+
+function setStatus(message) {
+  status.textContent = message;
+}
+
+function formatDate(value) {
+  if (!value) return "नहीं";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString("hi-IN");
+}
+
+async function adminAction(body) {
+  const { data, error } = await supabase.functions.invoke(
+    "gallery-admin", { body }
+  );
+
+  if (error) {
+    throw new Error(error.message || "Server अनुरोध असफल");
+  }
+  if (!data) throw new Error("Server से जवाब नहीं मिला");
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function checkAdmin() {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    form.classList.remove("hidden");
+    adminArea.classList.add("hidden");
+    return false;
+  }
+
+  try {
+    const data = await adminAction({ action: "check" });
+    if (!data.success) throw new Error("Admin अनुमति नहीं मिली");
+
+    form.classList.add("hidden");
+    adminArea.classList.remove("hidden");
+    $("adminEmail").textContent = "लॉगिन: " + (session.user.email || "");
+    await refreshAll();
+    setStatus("Admin login verified");
+    return true;
+  } catch (e) {
+    form.classList.remove("hidden");
+    adminArea.classList.add("hidden");
+    setStatus("Admin सत्यापन असफल: " + e.message);
+    return false;
+  }
+}
+
+async function loadVideos() {
+  const data = await adminAction({ action: "list-videos" });
+  videos = data.videos || [];
+
+  const select = $("videoSelect");
+  select.replaceChildren();
+
+  const first = document.createElement("option");
+  first.value = "";
+  first.textContent = videos.length
+    ? "वीडियो चुनें" : "कोई सक्रिय वीडियो नहीं मिला";
+  select.append(first);
+
+  for (const video of videos) {
+    const option = document.createElement("option");
+    option.value = video.id;
+    option.textContent = video.title;
+    select.append(option);
+  }
+}
+
+function videoTitle(videoId) {
+  return videos.find(v => v.id === videoId)?.title || "वीडियो";
+}
+
+function renderCodes() {
+  const list = $("codeList");
+  list.replaceChildren();
+
+  if (!accessCodes.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "अभी कोई Access Code नहीं मिला।";
+    list.append(p);
+    return;
+  }
+
+  for (const code of accessCodes) {
+    const item = document.createElement("article");
+    item.className = "item";
+
+    const title = document.createElement("strong");
+    title.textContent = videoTitle(code.video_id);
+    item.append(title);
+
+    const state = document.createElement("p");
+    let label = "सक्रिय";
+    if (code.is_revoked) label = "बंद किया गया";
+    else if (code.used_at) label = "इस्तेमाल हो चुका";
+    else if (code.expires_at && new Date(code.expires_at) <= new Date()) {
+      label = "समाप्त";
+    }
+    state.textContent = "स्थिति: " + label;
+    item.append(state);
+
+    const created = document.createElement("p");
+    created.textContent = "बनाया गया: " + formatDate(code.created_at);
+    item.append(created);
+
+    const expiry = document.createElement("p");
+    expiry.textContent = "Expiry: " +
+      (code.expires_at ? formatDate(code.expires_at) : "कोई समय-सीमा नहीं");
+    item.append(expiry);
+
+    const used = document.createElement("p");
+    used.textContent = "इस्तेमाल का समय: " + formatDate(code.used_at);
+    item.append(used);
+
+    if (!code.is_revoked && !code.used_at &&
+        !(code.expires_at && new Date(code.expires_at) <= new Date())) {
+      const revoke = document.createElement("button");
+      revoke.type = "button";
+      revoke.className = "danger";
+      revoke.textContent = "Revoke / बंद करें";
+      revoke.addEventListener("click", () => revokeCode(code.id, revoke));
+      item.append(revoke);
+    }
+
+    list.append(item);
+  }
+}
+
+async function refreshAll() {
+  await loadVideos();
+  const data = await adminAction({ action: "list-codes" });
+  accessCodes = data.codes || [];
+  renderCodes();
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy) return;
+  busy = true;
+  $("loginBtn").disabled = true;
+
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: $("email").value.trim(),
+      password: $("password").value
+    });
+    if (error) throw error;
+
+    const ok = await checkAdmin();
+    if (!ok) await supabase.auth.signOut();
+  } catch (e) {
+    setStatus("Login असफल: " + e.message);
+  } finally {
+    busy = false;
+    $("loginBtn").disabled = false;
+  }
+});
+
+$("uploadForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy) return;
+
+  const title = $("videoTitle").value.trim();
+  const description = $("videoDescription").value.trim();
+  const file = $("videoFile").files[0];
+
+  if (!title || !file) {
+    setStatus("वीडियो का नाम और फ़ाइल चुनें।");
+    return;
+  }
+
+  if (!/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
+    setStatus("MP4, WebM, MOV या M4V फ़ाइल चुनें।");
+    return;
+  }
+
+  busy = true;
+  $("uploadBtn").disabled = true;
+
+  try {
+    await adminAction({ action: "check" });
+    setStatus("अपलोड की अनुमति बनाई जा रही है…");
+
+    const info = await adminAction({
+      action: "create-upload",
+      filename: file.name
+    });
+
+    if (!info.success || !info.storage_path || !info.token) {
+      throw new Error("Upload अनुमति नहीं मिली।");
+    }
+
+    setStatus("वीडियो अपलोड हो रहा है…");
+
+    const { error } = await supabase.storage
+      .from("private-videos")
+      .uploadToSignedUrl(
+        info.storage_path, info.token, file,
+        { contentType: file.type || "video/mp4" }
       );
 
-      if (error || !data?.success) {
-        adminArea.classList.add("hidden");
-        form.classList.remove("hidden");
-        status.textContent =
-          "Admin अनुमति की पुष्टि नहीं हुई। कृपया दोबारा Login करें।";
-        return false;
-      }
+    if (error) throw error;
 
-      form.classList.add("hidden");
-      adminArea.classList.remove("hidden");
-      document.getElementById("adminEmail").textContent =
-        "लॉगिन: " + (session.user.email || "");
-      status.textContent = "Admin login verified";
-      return true;
-    }
+    setStatus("वीडियो अपलोड हुआ, रिकॉर्ड सेव हो रहा है…");
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (busy) return;
-      busy = true;
-      loginBtn.disabled = true;
-      status.textContent = "Login जाँचा जा रहा है…";
-
-      try {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: document.getElementById("email").value.trim(),
-          password: document.getElementById("password").value
-        });
-
-        if (error) throw error;
-
-        const ok = await checkAdmin();
-        if (!ok) await supabase.auth.signOut();
-      } catch (error) {
-        status.textContent =
-          "Login असफल: " + (error.message || "विवरण जाँचें।");
-      } finally {
-        busy = false;
-        loginBtn.disabled = false;
-      }
+    const saved = await adminAction({
+      action: "register-video",
+      title,
+      description,
+      storage_path: info.storage_path
     });
 
-    document.getElementById("uploadForm")
-      .addEventListener("submit", async (event) => {
-        event.preventDefault();
-        if (busy) return;
+    if (!saved.success) throw new Error("वीडियो रिकॉर्ड सेव नहीं हुआ।");
 
-        const title =
-          document.getElementById("videoTitle").value.trim();
-        const description =
-          document.getElementById("videoDescription").value.trim();
-        const file =
-          document.getElementById("videoFile").files[0];
+    $("uploadForm").reset();
+    await refreshAll();
+    setStatus("✅ वीडियो अपलोड और सेव हो गया: " + saved.video.title);
+  } catch (e) {
+    setStatus("❌ अपलोड असफल: " + e.message +
+      "\nयदि फ़ाइल पहले ही अपलोड हो गई हो, तो दोबारा अपलोड करने से पहले Storage जाँचें।");
+  } finally {
+    busy = false;
+    $("uploadBtn").disabled = false;
+  }
+});
 
-        if (!title || !file) {
-          status.textContent = "वीडियो का नाम और फ़ाइल चुनें।";
-          return;
-        }
+$("codeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy) return;
 
-        if (!/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
-          status.textContent =
-            "कृपया MP4, WebM, MOV या M4V वीडियो चुनें।";
-          return;
-        }
+  const videoId = $("videoSelect").value;
+  if (!videoId) {
+    setStatus("पहले वीडियो चुनें।");
+    return;
+  }
 
-        busy = true;
-        uploadBtn.disabled = true;
+  let expiresAt = null;
+  const rawExpiry = $("expiry").value;
 
-        try {
-          const { data: sessionData } =
-            await supabase.auth.getSession();
+  if (rawExpiry) {
+    const date = new Date(rawExpiry);
+    if (Number.isNaN(date.getTime()) || date <= new Date()) {
+      setStatus("Expiry का समय भविष्य में चुनें।");
+      return;
+    }
+    expiresAt = date.toISOString();
+  }
 
-          if (!sessionData.session) {
-            throw new Error("आपका Login समाप्त हो गया है। दोबारा Login करें।");
-          }
+  if (!confirm("क्या इस वीडियो के लिए नया One-Time Access Code बनाना है?")) {
+    return;
+  }
 
-          status.textContent = "Admin अनुमति जाँची जा रही है…";
+  busy = true;
+  $("generateBtn").disabled = true;
+  $("newCodeResult").classList.add("hidden");
 
-          const { data: check, error: checkError } =
-            await supabase.functions.invoke("gallery-admin", {
-              body: { action: "check" }
-            });
+  try {
+    setStatus("नया Access Code बनाया जा रहा है…");
 
-          if (checkError || !check?.success) {
-            throw new Error("Admin अनुमति सत्यापित नहीं हुई।");
-          }
-
-          status.textContent = "अपलोड की सुरक्षित अनुमति बनाई जा रही है…";
-
-          const { data: uploadInfo, error: urlError } =
-            await supabase.functions.invoke("gallery-admin", {
-              body: {
-                action: "create-upload",
-                filename: file.name
-              }
-            });
-
-          if (urlError) throw urlError;
-          if (!uploadInfo?.success ||
-              !uploadInfo?.storage_path || !uploadInfo?.token) {
-            throw new Error(uploadInfo?.error || "Upload अनुमति नहीं मिली।");
-          }
-
-          status.textContent = "वीडियो अपलोड हो रहा है…";
-
-          const { error: uploadError } = await supabase.storage
-            .from("private-videos")
-            .uploadToSignedUrl(
-              uploadInfo.storage_path,
-              uploadInfo.token,
-              file,
-              { contentType: file.type || "video/mp4" }
-            );
-
-          if (uploadError) throw uploadError;
-
-          status.textContent =
-            "वीडियो अपलोड हो गया। अब रिकॉर्ड सेव हो रहा है…";
-
-          const { data: saved, error: saveError } =
-            await supabase.functions.invoke("gallery-admin", {
-              body: {
-                action: "register-video",
-                title,
-                description,
-                storage_path: uploadInfo.storage_path
-              }
-            });
-
-          if (saveError) throw saveError;
-          if (!saved?.success) {
-            throw new Error(saved?.error || "वीडियो रिकॉर्ड सेव नहीं हुआ।");
-          }
-
-          status.textContent =
-            "✅ वीडियो सफलतापूर्वक अपलोड और सेव हो गया!\n" +
-            "नाम: " + saved.video.title +
-            "\nID: " + saved.video.id;
-
-          document.getElementById("uploadForm").reset();
-        } catch (error) {
-          status.textContent =
-            "❌ " + (error.message || "अपलोड असफल हुआ।") +
-            "\nयदि फ़ाइल अपलोड हो चुकी हो लेकिन रिकॉर्ड सेव न हुआ हो, " +
-            "तो दोबारा अपलोड करने से पहले Storage जाँचें।";
-        } finally {
-          busy = false;
-          uploadBtn.disabled = false;
-        }
-      });
-
-    document.getElementById("logout").addEventListener("click",
-      async () => {
-        await supabase.auth.signOut();
-        form.reset();
-        document.getElementById("uploadForm").reset();
-        form.classList.remove("hidden");
-        adminArea.classList.add("hidden");
-        status.textContent = "आप Logout हो गए हैं।";
-      }
-    );
-
-    supabase.auth.onAuthStateChange(() => {
-      setTimeout(() => checkAdmin(), 0);
+    const data = await adminAction({
+      action: "create-code",
+      video_id: videoId,
+      expires_at: expiresAt
     });
 
-    if (SUPABASE_ANON_KEY === "PASTE_YOUR_PUBLIC_ANON_KEY_HERE") {
-      status.textContent =
-        "पहले public sb_publishable_... key कोड में डालें।";
-    } else {
-      checkAdmin();
+    if (!data.success || !data.code) {
+      throw new Error("कोड नहीं बना।");
     }
-  </script>
+
+    displayedNewCode = data.code;
+    $("newCode").textContent = displayedNewCode;
+    $("newCodeResult").classList.remove("hidden");
+
+    await refreshAll();
+    setStatus("✅ नया Access Code बन गया। इसे अभी कॉपी करके सुरक्षित रखें।");
+    $("expiry").value = "";
+  } catch (e) {
+    setStatus("❌ Access Code नहीं बना: " + e.message);
+  } finally {
+    busy = false;
+    $("generateBtn").disabled = false;
+  }
+});
+
+$("copyCodeBtn").addEventListener("click", async () => {
+  if (!displayedNewCode) return;
+
+  try {
+    await navigator.clipboard.writeText(displayedNewCode);
+    setStatus("Access Code कॉपी हो गया। इसे सुरक्षित रखें।");
+  } catch {
+    setStatus("कॉपी नहीं हुआ। कोड को चुनकर Ctrl+C दबाएँ।");
+  }
+});
+
+async function revokeCode(id, button) {
+  if (busy) return;
+  if (!confirm("क्या आप इस Access Code को स्थायी रूप से बंद करना चाहते हैं?")) {
+    return;
+  }
+
+  busy = true;
+  button.disabled = true;
+
+  try {
+    await adminAction({ action: "revoke-code", code_id: id });
+    await refreshAll();
+    setStatus("✅ Access Code बंद कर दिया गया।");
+  } catch (e) {
+    setStatus("Revoke असफल: " + e.message);
+    button.disabled = false;
+  } finally {
+    busy = false;
+  }
+}
+
+$("refreshBtn").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true;
+  $("refreshBtn").disabled = true;
+  try {
+    await refreshAll();
+    setStatus("सूची अपडेट हो गई।");
+  } catch (e) {
+    setStatus("सूची लोड नहीं हुई: " + e.message);
+  } finally {
+    busy = false;
+    $("refreshBtn").disabled = false;
+  }
+});
+
+$("logout").addEventListener("click", async () => {
+  await supabase.auth.signOut();
+  form.reset();
+  $("uploadForm").reset();
+  $("codeForm").reset();
+  $("newCodeResult").classList.add("hidden");
+  displayedNewCode = "";
+  form.classList.remove("hidden");
+  adminArea.classList.add("hidden");
+  setStatus("आप Logout हो गए हैं।");
+});
+
+supabase.auth.onAuthStateChange(() => {
+  setTimeout(() => checkAdmin(), 0);
+});
+
+if (SUPABASE_ANON_KEY === "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH") {
+  setStatus("पहले अपनी public sb_publishable_... key डालें।");
+} else {
+  checkAdmin();
+}
+</script>
 </body>
 </html>
