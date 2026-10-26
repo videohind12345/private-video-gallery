@@ -8,64 +8,51 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 20px;
+      margin: 0; padding: 20px; min-height: 100vh;
       font-family: Arial, sans-serif;
-      background: #f1f5f9;
-      color: #172033;
+      background: #f1f5f9; color: #172033;
     }
     .card {
-      width: 100%;
-      max-width: 410px;
-      padding: 28px;
-      background: white;
-      border-radius: 16px;
+      max-width: 520px; margin: 30px auto; padding: 26px;
+      background: white; border-radius: 16px;
       box-shadow: 0 8px 30px #0f172a14;
     }
-    h1 { font-size: 24px; margin: 0 0 8px; }
+    h1 { font-size: 24px; margin-top: 0; }
     p { color: #64748b; line-height: 1.5; }
     label { display: block; margin: 16px 0 6px; font-weight: 600; }
-    input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      font-size: 16px;
+    input, textarea {
+      width: 100%; padding: 12px;
+      border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: 16px; font-family: inherit;
     }
+    textarea { min-height: 85px; resize: vertical; }
     button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 18px;
-      border: 0;
-      border-radius: 8px;
-      background: #166534;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
+      width: 100%; padding: 12px; margin-top: 16px;
+      border: 0; border-radius: 8px;
+      background: #166534; color: white;
+      font-size: 16px; cursor: pointer;
     }
     button:disabled { opacity: .6; cursor: wait; }
     #logout { background: #475569; }
     #status { white-space: pre-wrap; overflow-wrap: anywhere; }
     .hidden { display: none; }
+    .note { font-size: 13px; }
   </style>
 </head>
 <body>
   <main class="card">
-    <h1>🔐 Admin Login</h1>
-    <p>Private Video Gallery का सुरक्षित एडमिन पैनल</p>
+    <h1>🔐 Private Video Gallery</h1>
+    <p>सुरक्षित Admin Panel</p>
 
     <form id="loginForm">
       <label for="email">ईमेल</label>
       <input id="email" type="email" autocomplete="username"
-             required placeholder="Admin email">
+        required placeholder="Admin email">
 
       <label for="password">पासवर्ड</label>
       <input id="password" type="password"
-             autocomplete="current-password" required
-             placeholder="अपना पासवर्ड">
+        autocomplete="current-password" required
+        placeholder="अपना पासवर्ड">
 
       <button id="loginBtn" type="submit">Login करें</button>
     </form>
@@ -73,7 +60,35 @@
     <section id="adminArea" class="hidden">
       <h2>Admin Login सफल ✅</h2>
       <p id="adminEmail"></p>
-      <p>आपकी Admin अनुमति की पुष्टि हो गई है।</p>
+
+      <hr>
+
+      <h2>🎬 नया वीडियो अपलोड करें</h2>
+
+      <form id="uploadForm">
+        <label for="videoTitle">वीडियो का नाम</label>
+        <input id="videoTitle" required maxlength="150"
+          placeholder="जैसे: मेरी वीडियो">
+
+        <label for="videoDescription">वीडियो का विवरण</label>
+        <textarea id="videoDescription" maxlength="2000"
+          placeholder="वीडियो के बारे में लिखें (वैकल्पिक)"></textarea>
+
+        <label for="videoFile">कंप्यूटर से वीडियो चुनें</label>
+        <input id="videoFile" type="file"
+          accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v"
+          required>
+
+        <p class="note">
+          वीडियो Private Storage में अपलोड होगा। बड़ी फ़ाइलों के लिए
+          Storage की फ़ाइल-साइज़ सीमा लागू होगी।
+        </p>
+
+        <button id="uploadBtn" type="submit">
+          वीडियो अपलोड करें
+        </button>
+      </form>
+
       <button id="logout" type="button">Logout</button>
     </section>
 
@@ -84,51 +99,61 @@
     import { createClient } from
       "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-    // Supabase Dashboard → Project Settings → API
-    // यहाँ केवल Project URL और public anon/publishable key डालें।
-   const SUPABASE_URL = "https://wiwljnfcpcbjvvcewpye.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
+    const SUPABASE_URL =
+      "https://wiwljnfcpcbjvvcewpye.supabase.co";
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // यहाँ केवल अपनी public sb_publishable_... key डालें।
+    // Service role या secret key यहाँ कभी न डालें।
+    const SUPABASE_ANON_KEY =
+      "PASTE_YOUR_PUBLIC_ANON_KEY_HERE";
+
+    const supabase = createClient(
+      SUPABASE_URL, SUPABASE_ANON_KEY
+    );
 
     const form = document.getElementById("loginForm");
-    const loginBtn = document.getElementById("loginBtn");
-    const status = document.getElementById("status");
     const adminArea = document.getElementById("adminArea");
-    const adminEmail = document.getElementById("adminEmail");
+    const status = document.getElementById("status");
+    const loginBtn = document.getElementById("loginBtn");
+    const uploadBtn = document.getElementById("uploadBtn");
+
+    let busy = false;
 
     async function checkAdmin() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } =
+        await supabase.auth.getSession();
 
       if (!session) {
         form.classList.remove("hidden");
         adminArea.classList.add("hidden");
-        return;
+        return false;
       }
 
       const { data, error } = await supabase.functions.invoke(
         "gallery-admin",
-        {
-          body: { action: "check" }
-        }
+        { body: { action: "check" } }
       );
 
       if (error || !data?.success) {
         adminArea.classList.add("hidden");
         form.classList.remove("hidden");
         status.textContent =
-          "Admin अनुमति की पुष्टि नहीं हुई। दोबारा Login करें या सेटिंग जाँचें।";
-        return;
+          "Admin अनुमति की पुष्टि नहीं हुई। कृपया दोबारा Login करें।";
+        return false;
       }
 
       form.classList.add("hidden");
       adminArea.classList.remove("hidden");
-      adminEmail.textContent = "लॉगिन: " + (session.user.email || "");
-      status.textContent = data.message || "Admin सत्यापित है।";
+      document.getElementById("adminEmail").textContent =
+        "लॉगिन: " + (session.user.email || "");
+      status.textContent = "Admin login verified";
+      return true;
     }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (busy) return;
+      busy = true;
       loginBtn.disabled = true;
       status.textContent = "Login जाँचा जा रहा है…";
 
@@ -140,34 +165,144 @@ const SUPABASE_ANON_KEY = "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
 
         if (error) throw error;
 
-        await checkAdmin();
-
-        if (adminArea.classList.contains("hidden")) {
-          await supabase.auth.signOut();
-        }
+        const ok = await checkAdmin();
+        if (!ok) await supabase.auth.signOut();
       } catch (error) {
-        status.textContent = "Login असफल: " + (error.message || "कृपया विवरण जाँचें।");
+        status.textContent =
+          "Login असफल: " + (error.message || "विवरण जाँचें।");
       } finally {
+        busy = false;
         loginBtn.disabled = false;
       }
     });
 
-    document.getElementById("logout").addEventListener("click", async () => {
-      await supabase.auth.signOut();
-      status.textContent = "आप Logout हो गए हैं।";
-      form.reset();
-      form.classList.remove("hidden");
-      adminArea.classList.add("hidden");
-    });
+    document.getElementById("uploadForm")
+      .addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (busy) return;
+
+        const title =
+          document.getElementById("videoTitle").value.trim();
+        const description =
+          document.getElementById("videoDescription").value.trim();
+        const file =
+          document.getElementById("videoFile").files[0];
+
+        if (!title || !file) {
+          status.textContent = "वीडियो का नाम और फ़ाइल चुनें।";
+          return;
+        }
+
+        if (!/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
+          status.textContent =
+            "कृपया MP4, WebM, MOV या M4V वीडियो चुनें।";
+          return;
+        }
+
+        busy = true;
+        uploadBtn.disabled = true;
+
+        try {
+          const { data: sessionData } =
+            await supabase.auth.getSession();
+
+          if (!sessionData.session) {
+            throw new Error("आपका Login समाप्त हो गया है। दोबारा Login करें।");
+          }
+
+          status.textContent = "Admin अनुमति जाँची जा रही है…";
+
+          const { data: check, error: checkError } =
+            await supabase.functions.invoke("gallery-admin", {
+              body: { action: "check" }
+            });
+
+          if (checkError || !check?.success) {
+            throw new Error("Admin अनुमति सत्यापित नहीं हुई।");
+          }
+
+          status.textContent = "अपलोड की सुरक्षित अनुमति बनाई जा रही है…";
+
+          const { data: uploadInfo, error: urlError } =
+            await supabase.functions.invoke("gallery-admin", {
+              body: {
+                action: "create-upload",
+                filename: file.name
+              }
+            });
+
+          if (urlError) throw urlError;
+          if (!uploadInfo?.success ||
+              !uploadInfo?.storage_path || !uploadInfo?.token) {
+            throw new Error(uploadInfo?.error || "Upload अनुमति नहीं मिली।");
+          }
+
+          status.textContent = "वीडियो अपलोड हो रहा है…";
+
+          const { error: uploadError } = await supabase.storage
+            .from("private-videos")
+            .uploadToSignedUrl(
+              uploadInfo.storage_path,
+              uploadInfo.token,
+              file,
+              { contentType: file.type || "video/mp4" }
+            );
+
+          if (uploadError) throw uploadError;
+
+          status.textContent =
+            "वीडियो अपलोड हो गया। अब रिकॉर्ड सेव हो रहा है…";
+
+          const { data: saved, error: saveError } =
+            await supabase.functions.invoke("gallery-admin", {
+              body: {
+                action: "register-video",
+                title,
+                description,
+                storage_path: uploadInfo.storage_path
+              }
+            });
+
+          if (saveError) throw saveError;
+          if (!saved?.success) {
+            throw new Error(saved?.error || "वीडियो रिकॉर्ड सेव नहीं हुआ।");
+          }
+
+          status.textContent =
+            "✅ वीडियो सफलतापूर्वक अपलोड और सेव हो गया!\n" +
+            "नाम: " + saved.video.title +
+            "\nID: " + saved.video.id;
+
+          document.getElementById("uploadForm").reset();
+        } catch (error) {
+          status.textContent =
+            "❌ " + (error.message || "अपलोड असफल हुआ।") +
+            "\nयदि फ़ाइल अपलोड हो चुकी हो लेकिन रिकॉर्ड सेव न हुआ हो, " +
+            "तो दोबारा अपलोड करने से पहले Storage जाँचें।";
+        } finally {
+          busy = false;
+          uploadBtn.disabled = false;
+        }
+      });
+
+    document.getElementById("logout").addEventListener("click",
+      async () => {
+        await supabase.auth.signOut();
+        form.reset();
+        document.getElementById("uploadForm").reset();
+        form.classList.remove("hidden");
+        adminArea.classList.add("hidden");
+        status.textContent = "आप Logout हो गए हैं।";
+      }
+    );
 
     supabase.auth.onAuthStateChange(() => {
-      // Login/Logout के बाद स्थिति को अपडेट करें।
       setTimeout(() => checkAdmin(), 0);
     });
 
-    if (SUPABASE_ANON_KEY === "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH") {
+    if (SUPABASE_ANON_KEY === "PASTE_YOUR_PUBLIC_ANON_KEY_HERE") {
       status.textContent =
-        "पहले Supabase Dashboard से अपनी public anon/publishable key कोड में डालें।";
+        "पहले public sb_publishable_... key कोड में डालें।";
     } else {
       checkAdmin();
     }
