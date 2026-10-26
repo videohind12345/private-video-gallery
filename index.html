@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Video Gallery</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      background: white;
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px #00000012;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 25px;
+      margin-top: 0;
+    }
+
+    p {
+      text-align: center;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    input {
+      border: 1px solid #cbd5e1;
+    }
+
+    button {
+      background: #1769e0;
+      color: white;
+      border: 0;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #message {
+      text-align: center;
+      margin-top: 16px;
+      overflow-wrap: anywhere;
+    }
+
+    #videoArea {
+      display: none;
+      margin-top: 22px;
+    }
+
+    video {
+      display: block;
+      width: 100%;
+      max-height: 70vh;
+      background: #000;
+      border-radius: 10px;
+    }
+
+    #videoTitle {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .small {
+      font-size: 13px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>🔒 Private Video Gallery</h1>
+    <p>अपना वीडियो एक्सेस कोड डालें।</p>
+
+    <form id="accessForm">
+      <input
+        id="accessCode"
+        type="password"
+        placeholder="अपना एक्सेस कोड डालें"
+        autocomplete="off"
+        required
+      >
+      <button id="submitBtn" type="submit">
+        वीडियो खोलें
+      </button>
+    </form>
+
+    <div id="message" role="status" aria-live="polite"></div>
+
+    <section id="videoArea">
+      <div id="videoTitle"></div>
+      <p id="videoDescription"></p>
+      <video id="videoPlayer" controls playsinline></video>
+      <p class="small">
+        सुरक्षा के लिए वीडियो लिंक सीमित समय तक ही काम करेगा।
+      </p>
+    </section>
+  </main>
+
+  <script>
+    const API_URL =
+      "https://wiwljnfcpcbjvvcewpye.supabase.co/functions/v1/video-gallery";
+
+    const form = document.getElementById("accessForm");
+    const codeInput = document.getElementById("accessCode");
+    const submitBtn = document.getElementById("submitBtn");
+    const message = document.getElementById("message");
+    const videoArea = document.getElementById("videoArea");
+    const videoPlayer = document.getElementById("videoPlayer");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const code = codeInput.value.trim();
+      if (!code) return;
+
+      submitBtn.disabled = true;
+      message.textContent = "कोड जाँचा जा रहा है...";
+      videoArea.style.display = "none";
+      videoPlayer.pause();
+      videoPlayer.removeAttribute("src");
+      videoPlayer.load();
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ code })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success || !result.videoUrl) {
+          throw new Error(
+            result.error || "वीडियो नहीं खुल पाया।"
+          );
+        }
+
+        document.getElementById("videoTitle").textContent =
+          result.title || "आपकी वीडियो";
+
+        document.getElementById("videoDescription").textContent =
+          result.description || "";
+
+        videoPlayer.src = result.videoUrl;
+        videoArea.style.display = "block";
+        message.textContent = "कोड सही है। वीडियो तैयार है।";
+
+        videoPlayer.load();
+        videoPlayer.play().catch(() => {
+          message.textContent =
+            "वीडियो तैयार है। चलाने के लिए Play दबाएँ।";
+        });
+
+        codeInput.value = "";
+      } catch (error) {
+        message.textContent =
+          error.message === "Failed to fetch"
+            ? "कनेक्शन नहीं हो पाया। इंटरनेट या सर्वर जाँचें।"
+            : error.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
