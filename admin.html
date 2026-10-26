@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Private Video Gallery — Admin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+    .card {
+      width: 100%;
+      max-width: 410px;
+      padding: 28px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px #0f172a14;
+    }
+    h1 { font-size: 24px; margin: 0 0 8px; }
+    p { color: #64748b; line-height: 1.5; }
+    label { display: block; margin: 16px 0 6px; font-weight: 600; }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 8px;
+      background: #166534;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: wait; }
+    #logout { background: #475569; }
+    #status { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>🔐 Admin Login</h1>
+    <p>Private Video Gallery का सुरक्षित एडमिन पैनल</p>
+
+    <form id="loginForm">
+      <label for="email">ईमेल</label>
+      <input id="email" type="email" autocomplete="username"
+             required placeholder="Admin email">
+
+      <label for="password">पासवर्ड</label>
+      <input id="password" type="password"
+             autocomplete="current-password" required
+             placeholder="अपना पासवर्ड">
+
+      <button id="loginBtn" type="submit">Login करें</button>
+    </form>
+
+    <section id="adminArea" class="hidden">
+      <h2>Admin Login सफल ✅</h2>
+      <p id="adminEmail"></p>
+      <p>आपकी Admin अनुमति की पुष्टि हो गई है।</p>
+      <button id="logout" type="button">Logout</button>
+    </section>
+
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <script type="module">
+    import { createClient } from
+      "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    // Supabase Dashboard → Project Settings → API
+    // यहाँ केवल Project URL और public anon/publishable key डालें।
+    const SUPABASE_URL = "https://wiwljnfcpcbjvvcewpye.supabase.co";
+    const SUPABASE_ANON_KEY = "PASTE_YOUR_PUBLIC_ANON_KEY_HERE";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById("loginForm");
+    const loginBtn = document.getElementById("loginBtn");
+    const status = document.getElementById("status");
+    const adminArea = document.getElementById("adminArea");
+    const adminEmail = document.getElementById("adminEmail");
+
+    async function checkAdmin() {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        form.classList.remove("hidden");
+        adminArea.classList.add("hidden");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "gallery-admin",
+        {
+          body: { action: "check" }
+        }
+      );
+
+      if (error || !data?.success) {
+        adminArea.classList.add("hidden");
+        form.classList.remove("hidden");
+        status.textContent =
+          "Admin अनुमति की पुष्टि नहीं हुई। दोबारा Login करें या सेटिंग जाँचें।";
+        return;
+      }
+
+      form.classList.add("hidden");
+      adminArea.classList.remove("hidden");
+      adminEmail.textContent = "लॉगिन: " + (session.user.email || "");
+      status.textContent = data.message || "Admin सत्यापित है।";
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      loginBtn.disabled = true;
+      status.textContent = "Login जाँचा जा रहा है…";
+
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: document.getElementById("email").value.trim(),
+          password: document.getElementById("password").value
+        });
+
+        if (error) throw error;
+
+        await checkAdmin();
+
+        if (adminArea.classList.contains("hidden")) {
+          await supabase.auth.signOut();
+        }
+      } catch (error) {
+        status.textContent = "Login असफल: " + (error.message || "कृपया विवरण जाँचें।");
+      } finally {
+        loginBtn.disabled = false;
+      }
+    });
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      status.textContent = "आप Logout हो गए हैं।";
+      form.reset();
+      form.classList.remove("hidden");
+      adminArea.classList.add("hidden");
+    });
+
+    supabase.auth.onAuthStateChange(() => {
+      // Login/Logout के बाद स्थिति को अपडेट करें।
+      setTimeout(() => checkAdmin(), 0);
+    });
+
+    if (SUPABASE_ANON_KEY === "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH") {
+      status.textContent =
+        "पहले Supabase Dashboard से अपनी public anon/publishable key कोड में डालें।";
+    } else {
+      checkAdmin();
+    }
+  </script>
+</body>
+</html>
