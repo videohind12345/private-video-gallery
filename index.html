@@ -1,4 +1,4 @@
-
+```html
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -50,9 +50,7 @@
       font-size: 16px;
     }
 
-    input {
-      border: 1px solid #cbd5e1;
-    }
+    input { border: 1px solid #cbd5e1; }
 
     button {
       background: #1769e0;
@@ -65,6 +63,11 @@
     button:disabled {
       opacity: 0.6;
       cursor: wait;
+    }
+
+    #backBtn {
+      background: #475569;
+      margin-top: 16px;
     }
 
     #message {
@@ -92,9 +95,7 @@
       font-weight: bold;
     }
 
-    .small {
-      font-size: 13px;
-    }
+    .small { font-size: 13px; }
   </style>
 </head>
 
@@ -121,10 +122,16 @@
     <section id="videoArea">
       <div id="videoTitle"></div>
       <p id="videoDescription"></p>
+
       <video id="videoPlayer" controls playsinline></video>
+
       <p class="small">
         सुरक्षा के लिए वीडियो लिंक सीमित समय तक ही काम करेगा।
       </p>
+
+      <button id="backBtn" type="button">
+        ⬅️ वापस जाएँ
+      </button>
     </section>
   </main>
 
@@ -138,6 +145,21 @@
     const message = document.getElementById("message");
     const videoArea = document.getElementById("videoArea");
     const videoPlayer = document.getElementById("videoPlayer");
+    const backBtn = document.getElementById("backBtn");
+
+    function returnToCodePage() {
+      videoPlayer.pause();
+      videoPlayer.removeAttribute("src");
+      videoPlayer.load();
+
+      videoArea.style.display = "none";
+      form.style.display = "block";
+      codeInput.value = "";
+      message.textContent = "";
+      codeInput.focus();
+    }
+
+    backBtn.addEventListener("click", returnToCodePage);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -148,6 +170,8 @@
       submitBtn.disabled = true;
       message.textContent = "कोड जाँचा जा रहा है...";
       videoArea.style.display = "none";
+      form.style.display = "block";
+
       videoPlayer.pause();
       videoPlayer.removeAttribute("src");
       videoPlayer.load();
@@ -177,9 +201,11 @@
 
         videoPlayer.src = result.videoUrl;
         videoArea.style.display = "block";
+        form.style.display = "none";
         message.textContent = "कोड सही है। वीडियो तैयार है।";
 
         videoPlayer.load();
+
         videoPlayer.play().catch(() => {
           message.textContent =
             "वीडियो तैयार है। चलाने के लिए Play दबाएँ।";
@@ -198,3 +224,4 @@
   </script>
 </body>
 </html>
+```
