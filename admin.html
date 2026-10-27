@@ -114,6 +114,15 @@
           <option value="">पहले वीडियो सूची लोड करें</option>
         </select>
 
+        <label for="customCode">अपनी पसंद का Access Code (वैकल्पिक)</label>
+        <input id="customCode" type="text" maxlength="32"
+          pattern="[A-Za-z0-9-]{3,32}" autocomplete="off"
+          placeholder="जैसे: 101 या ABC">
+        <p class="muted">
+          खाली छोड़ने पर सिस्टम अपने आप कोड बनाएगा। अपना कोड 3–32 अक्षरों का रखें;
+          अंग्रेज़ी अक्षर, अंक और हाइफ़न इस्तेमाल करें। कोड बनाते समय अक्षर बड़े किए जाएँगे।
+        </p>
+
         <label for="expiry">Expiry तारीख और समय (वैकल्पिक)</label>
         <input id="expiry" type="datetime-local">
         <p class="muted">
@@ -462,6 +471,12 @@ $("codeForm").addEventListener("submit", async (event) => {
     return;
   }
 
+  const customCode = $("customCode").value.trim();
+  if (customCode && !/^[A-Za-z0-9-]{3,32}$/.test(customCode)) {
+    setStatus("कोड 3–32 अक्षरों का रखें; केवल अंग्रेज़ी अक्षर, अंक और हाइफ़न।");
+    return;
+  }
+
   let expiresAt = null;
   const rawExpiry = $("expiry").value;
 
@@ -488,7 +503,8 @@ $("codeForm").addEventListener("submit", async (event) => {
     const data = await adminAction({
       action: "create-code",
       video_id: videoId,
-      expires_at: expiresAt
+      expires_at: expiresAt,
+      custom_code: customCode
     });
 
     if (!data.success || !data.code) {
@@ -502,6 +518,7 @@ $("codeForm").addEventListener("submit", async (event) => {
     await refreshAll();
     setStatus("✅ नया Access Code बन गया। इसे अभी कॉपी करके सुरक्षित रखें।");
     $("expiry").value = "";
+    $("customCode").value = "";
   } catch (e) {
     setStatus("❌ Access Code नहीं बना: " + e.message);
   } finally {
