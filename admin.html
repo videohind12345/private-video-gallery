@@ -98,6 +98,15 @@
     </section>
 
     <section class="section">
+      <h2>🎞️ वीडियो सूची / वीडियो हटाएँ</h2>
+      <p class="muted">
+        यहाँ सक्रिय वीडियो दिखेंगे। Delete करने पर वीडियो निष्क्रिय होगा,
+        उससे जुड़े पुराने Access Codes बंद होंगे और Storage फ़ाइल हटाने की कोशिश होगी।
+      </p>
+      <div id="videoList"></div>
+    </section>
+
+    <section class="section">
       <h2>🔑 नया Access Code बनाएँ</h2>
       <form id="codeForm">
         <label for="videoSelect">वीडियो चुनें</label>
@@ -237,6 +246,50 @@ async function loadVideos() {
     option.value = video.id;
     option.textContent = video.title;
     select.append(option);
+  }
+
+  renderVideos();
+}
+
+function renderVideos() {
+  const list = $("videoList");
+  list.replaceChildren();
+
+  if (!videos.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "अभी कोई सक्रिय वीडियो नहीं है।";
+    list.append(p);
+    return;
+  }
+
+  for (const video of videos) {
+    const item = document.createElement("article");
+    item.className = "item";
+
+    const title = document.createElement("strong");
+    title.textContent = video.title || "बिना नाम का वीडियो";
+    item.append(title);
+
+    if (video.description) {
+      const description = document.createElement("p");
+      description.textContent = video.description;
+      item.append(description);
+    }
+
+    const created = document.createElement("p");
+    created.className = "muted";
+    created.textContent = "अपलोड: " + formatDate(video.created_at);
+    item.append(created);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "danger";
+    del.textContent = "🗑️ Delete वीडियो";
+    del.addEventListener("click", () => deleteVideo(video.id, video.title, del));
+    item.append(del);
+
+    list.append(item);
   }
 }
 
@@ -467,6 +520,32 @@ $("copyCodeBtn").addEventListener("click", async () => {
     setStatus("कॉपी नहीं हुआ। कोड को चुनकर Ctrl+C दबाएँ।");
   }
 });
+
+async function deleteVideo(id, title, button) {
+  if (busy) return;
+
+  const confirmed = confirm(
+    `क्या आप "${title || "इस वीडियो"}" को हटाना चाहते हैं?\\n\\n` +
+    "इससे वीडियो निष्क्रिय होगा, उससे जुड़े Access Codes बंद होंगे " +
+    "और Storage फ़ाइल हटाने की कोशिश होगी। यह काम वापस नहीं किया जा सकता।"
+  );
+  if (!confirmed) return;
+
+  busy = true;
+  button.disabled = true;
+
+  try {
+    setStatus("वीडियो हटाया जा रहा है…");
+    const result = await adminAction({ action: "delete-video", video_id: id });
+    await refreshAll();
+    setStatus("✅ " + (result.message || "वीडियो हटा दिया गया।"));
+  } catch (e) {
+    setStatus("❌ वीडियो हटाने में समस्या: " + e.message);
+    button.disabled = false;
+  } finally {
+    busy = false;
+  }
+}
 
 async function revokeCode(id, button) {
   if (busy) return;
