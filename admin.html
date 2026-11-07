@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -52,6 +53,11 @@
     }
     .item p { margin: 7px 0; line-height: 1.5; }
     .item button { margin-right: 6px; }
+    .link-url {
+      display: block; margin-top: 8px; padding: 10px;
+      background: #f1f5f9; border-radius: 7px;
+      overflow-wrap: anywhere; font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -103,6 +109,45 @@
         उससे जुड़े पुराने Access Codes बंद होंगे और Storage फ़ाइल हटाने की कोशिश होगी।
       </p>
       <div id="videoList"></div>
+    </section>
+
+    <section class="section">
+      <h2>🔗 नया Direct Video Link बनाएँ</h2>
+      <p class="muted">
+        वीडियो चुनकर एक अलग लिंक बनाएँ। जिसे यह लिंक भेजेंगे,
+        वह इसे खोलकर सीधे वही वीडियो देख सकेगा।
+      </p>
+
+      <form id="directLinkForm">
+        <label for="directVideoSelect">वीडियो चुनें</label>
+        <select id="directVideoSelect" required>
+          <option value="">पहले वीडियो सूची लोड करें</option>
+        </select>
+
+        <button id="createLinkBtn" class="full" type="submit">
+          🔗 Direct Link बनाएँ
+        </button>
+      </form>
+
+      <div id="newLinkResult" class="result hidden">
+        <strong>✅ Direct Video Link बन गई</strong>
+        <p id="newLinkTitle"></p>
+        <p id="newLinkNumber" class="muted"></p>
+        <div id="newLinkUrl" class="link-url"></div>
+        <button id="copyLinkBtn" type="button">लिंक कॉपी करें</button>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>📋 सभी Direct Video Links</h2>
+      <p class="muted">
+        यहाँ लिंक नंबर, वीडियो का नाम, बनने का समय,
+        पहली बार खुलने का समय और वीडियो पूरा होने का समय दिखेगा।
+      </p>
+      <button id="refreshLinksBtn" class="secondary full" type="button">
+        Direct Links Refresh करें
+      </button>
+      <div id="directLinksList"></div>
     </section>
 
     <section class="section">
@@ -170,8 +215,8 @@ import { createClient } from
 const SUPABASE_URL =
   "https://wiwljnfcpcbjvvcewpye.supabase.co";
 
-// अपनी public sb_publishable_... key यहाँ रखें।
-const SUPABASE_ANON_KEY = "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
+const SUPABASE_ANON_KEY =
+  "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -183,16 +228,28 @@ const status = $("status");
 let busy = false;
 let videos = [];
 let accessCodes = [];
+let directLinks = [];
 let displayedNewCode = "";
+let displayedNewLink = "";
 
 function setStatus(message) {
   status.textContent = message;
 }
 
 function formatDate(value) {
-  if (!value) return "नहीं";
+  if (!value) return "अभी नहीं";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? value : d.toLocaleString("hi-IN");
+}
+
+async function copyText(value, successMessage) {
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    setStatus(successMessage);
+  } catch {
+    setStatus("कॉपी नहीं हुआ। लिंक या कोड को चुनकर Ctrl+C दबाएँ।");
+  }
 }
 
 async function adminAction(body) {
@@ -239,20 +296,22 @@ async function loadVideos() {
   const data = await adminAction({ action: "list-videos" });
   videos = data.videos || [];
 
-  const select = $("videoSelect");
-  select.replaceChildren();
+  for (const selectId of ["videoSelect", "directVideoSelect"]) {
+    const select = $(selectId);
+    select.replaceChildren();
 
-  const first = document.createElement("option");
-  first.value = "";
-  first.textContent = videos.length
-    ? "वीडियो चुनें" : "कोई सक्रिय वीडियो नहीं मिला";
-  select.append(first);
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = videos.length
+      ? "वीडियो चुनें" : "कोई सक्रिय वीडियो नहीं मिला";
+    select.append(first);
 
-  for (const video of videos) {
-    const option = document.createElement("option");
-    option.value = video.id;
-    option.textContent = video.title;
-    select.append(option);
+    for (const video of videos) {
+      const option = document.createElement("option");
+      option.value = video.id;
+      option.textContent = video.title;
+      select.append(option);
+    }
   }
 
   renderVideos();
@@ -324,7 +383,6 @@ function renderCodes() {
     title.textContent = videoTitle(code.video_id);
     item.append(title);
 
-    // Access Code केवल Admin Panel में दिखेगा।
     const accessCodeText = document.createElement("p");
     accessCodeText.className = "code-text";
     accessCodeText.textContent =
@@ -368,11 +426,93 @@ function renderCodes() {
   }
 }
 
+function linkStatus(statusValue) {
+  switch (statusValue) {
+    case "unused":
+      return "अभी तक नहीं खुली";
+    case "opened":
+      return "खुली है — वीडियो पूरा नहीं हुआ";
+    case "incomplete":
+      return "वीडियो अधूरा रहा";
+    case "watched":
+      return "वीडियो पूरा हुआ";
+    default:
+      return statusValue || "अज्ञात";
+  }
+}
+
+function renderDirectLinks() {
+  const list = $("directLinksList");
+  list.replaceChildren();
+
+  if (!directLinks.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "अभी कोई Direct Video Link नहीं बनी है।";
+    list.append(p);
+    return;
+  }
+
+  for (const link of directLinks) {
+    const item = document.createElement("article");
+    item.className = "item";
+
+    const number = document.createElement("strong");
+    number.textContent =
+      "Link No. " + (link.link_number ?? link.id ?? "—");
+    item.append(number);
+
+    const title = document.createElement("p");
+    title.textContent = "वीडियो का नाम: " + (link.title || "वीडियो उपलब्ध नहीं");
+    item.append(title);
+
+    const state = document.createElement("p");
+    state.textContent = "स्थिति: " + linkStatus(link.status);
+    item.append(state);
+
+    const created = document.createElement("p");
+    created.textContent = "लिंक बनी: " + formatDate(link.created_at);
+    item.append(created);
+
+    const opened = document.createElement("p");
+    opened.textContent = "पहली बार खुली: " + formatDate(link.opened_at);
+    item.append(opened);
+
+    const completed = document.createElement("p");
+    completed.textContent = "वीडियो पूरा हुआ: " + formatDate(link.completed_at);
+    item.append(completed);
+
+    const url = document.createElement("div");
+    url.className = "link-url";
+    url.textContent = link.url || "";
+    item.append(url);
+
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.textContent = "लिंक कॉपी करें";
+    copy.addEventListener("click", () =>
+      copyText(link.url, "Direct Video Link कॉपी हो गई।")
+    );
+    item.append(copy);
+
+    list.append(item);
+  }
+}
+
+async function loadDirectLinks() {
+  const data = await adminAction({ action: "list-links" });
+  directLinks = data.links || [];
+  renderDirectLinks();
+}
+
 async function refreshAll() {
   await loadVideos();
+
   const data = await adminAction({ action: "list-codes" });
   accessCodes = data.codes || [];
   renderCodes();
+
+  await loadDirectLinks();
 }
 
 form.addEventListener("submit", async (event) => {
@@ -466,6 +606,58 @@ $("uploadForm").addEventListener("submit", async (event) => {
   }
 });
 
+$("directLinkForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (busy) return;
+
+  const videoId = $("directVideoSelect").value;
+  if (!videoId) {
+    setStatus("Direct Link बनाने के लिए पहले वीडियो चुनें।");
+    return;
+  }
+
+  if (!confirm("क्या चुने हुए वीडियो की नई Direct Link बनानी है?")) {
+    return;
+  }
+
+  busy = true;
+  $("createLinkBtn").disabled = true;
+  $("newLinkResult").classList.add("hidden");
+
+  try {
+    setStatus("Direct Video Link बनाई जा रही है…");
+
+    const data = await adminAction({
+      action: "create-link",
+      video_id: videoId
+    });
+
+    if (!data.success || !data.link || !data.link.url) {
+      throw new Error("Direct Link नहीं बनी।");
+    }
+
+    displayedNewLink = data.link.url;
+    $("newLinkTitle").textContent =
+      "वीडियो: " + (data.link.title || videoTitle(videoId));
+    $("newLinkNumber").textContent =
+      "Link No. " + (data.link.link_number ?? data.link.id ?? "—");
+    $("newLinkUrl").textContent = displayedNewLink;
+    $("newLinkResult").classList.remove("hidden");
+
+    await loadDirectLinks();
+    setStatus("✅ Direct Video Link बन गई। अब लिंक कॉपी करके भेज सकते हैं।");
+  } catch (e) {
+    setStatus("❌ Direct Link बनाने में समस्या: " + e.message);
+  } finally {
+    busy = false;
+    $("createLinkBtn").disabled = false;
+  }
+});
+
+$("copyLinkBtn").addEventListener("click", () => {
+  copyText(displayedNewLink, "Direct Video Link कॉपी हो गई।");
+});
+
 $("codeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (busy) return;
@@ -534,20 +726,14 @@ $("codeForm").addEventListener("submit", async (event) => {
 
 $("copyCodeBtn").addEventListener("click", async () => {
   if (!displayedNewCode) return;
-
-  try {
-    await navigator.clipboard.writeText(displayedNewCode);
-    setStatus("Access Code कॉपी हो गया। इसे सुरक्षित रखें।");
-  } catch {
-    setStatus("कॉपी नहीं हुआ। कोड को चुनकर Ctrl+C दबाएँ।");
-  }
+  await copyText(displayedNewCode, "Access Code कॉपी हो गया। इसे सुरक्षित रखें।");
 });
 
 async function deleteVideo(id, title, button) {
   if (busy) return;
 
   const confirmed = confirm(
-    `क्या आप "${title || "इस वीडियो"}" को हटाना चाहते हैं?\\n\\n` +
+    `क्या आप "${title || "इस वीडियो"}" को हटाना चाहते हैं?\n\n` +
     "इससे वीडियो निष्क्रिय होगा, उससे जुड़े Access Codes बंद होंगे " +
     "और Storage फ़ाइल हटाने की कोशिश होगी। यह काम वापस नहीं किया जा सकता।"
   );
@@ -590,13 +776,29 @@ async function revokeCode(id, button) {
   }
 }
 
+$("refreshLinksBtn").addEventListener("click", async () => {
+  if (busy) return;
+  busy = true;
+  $("refreshLinksBtn").disabled = true;
+
+  try {
+    await loadDirectLinks();
+    setStatus("Direct Links की सूची अपडेट हो गई।");
+  } catch (e) {
+    setStatus("Direct Links लोड नहीं हुईं: " + e.message);
+  } finally {
+    busy = false;
+    $("refreshLinksBtn").disabled = false;
+  }
+});
+
 $("refreshBtn").addEventListener("click", async () => {
   if (busy) return;
   busy = true;
   $("refreshBtn").disabled = true;
   try {
     await refreshAll();
-    setStatus("सूची अपडेट हो गई।");
+    setStatus("वीडियो, Access Code और Direct Links की सूची अपडेट हो गई।");
   } catch (e) {
     setStatus("सूची लोड नहीं हुई: " + e.message);
   } finally {
@@ -610,8 +812,11 @@ $("logout").addEventListener("click", async () => {
   form.reset();
   $("uploadForm").reset();
   $("codeForm").reset();
+  $("directLinkForm").reset();
   $("newCodeResult").classList.add("hidden");
+  $("newLinkResult").classList.add("hidden");
   displayedNewCode = "";
+  displayedNewLink = "";
   form.classList.remove("hidden");
   adminArea.classList.add("hidden");
   setStatus("आप Logout हो गए हैं।");
@@ -621,11 +826,8 @@ supabase.auth.onAuthStateChange(() => {
   setTimeout(() => checkAdmin(), 0);
 });
 
-if (SUPABASE_ANON_KEY === "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH") {
-  setStatus("पहले अपनी public sb_publishable_... key डालें।");
-} else {
-  checkAdmin();
-}
+checkAdmin();
 </script>
 </body>
 </html>
+```
