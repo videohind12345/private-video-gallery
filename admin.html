@@ -58,6 +58,16 @@
       background: #f1f5f9; border-radius: 7px;
       overflow-wrap: anywhere; font-size: 13px;
     }
+    .used-link {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -441,6 +451,26 @@ function linkStatus(statusValue) {
   }
 }
 
+function updateNewLinkCopyState(link) {
+  const button = $("copyLinkBtn");
+  let usedLabel = $("newLinkUsedLabel");
+
+  if (link && link.status !== "unused") {
+    button.classList.add("hidden");
+
+    if (!usedLabel) {
+      usedLabel = document.createElement("span");
+      usedLabel.id = "newLinkUsedLabel";
+      usedLabel.className = "used-link";
+      usedLabel.textContent = "इस्तेमाल हो चुकी";
+      button.after(usedLabel);
+    }
+  } else {
+    button.classList.remove("hidden");
+    if (usedLabel) usedLabel.remove();
+  }
+}
+
 function renderDirectLinks() {
   const list = $("directLinksList");
   list.replaceChildren();
@@ -487,13 +517,20 @@ function renderDirectLinks() {
     url.textContent = link.url || "";
     item.append(url);
 
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.textContent = "लिंक कॉपी करें";
-    copy.addEventListener("click", () =>
-      copyText(link.url, "Direct Video Link कॉपी हो गई।")
-    );
-    item.append(copy);
+    if (link.status === "unused") {
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.textContent = "लिंक कॉपी करें";
+      copy.addEventListener("click", () =>
+        copyText(link.url, "Direct Video Link कॉपी हो गई।")
+      );
+      item.append(copy);
+    } else {
+      const usedLabel = document.createElement("span");
+      usedLabel.className = "used-link";
+      usedLabel.textContent = "इस्तेमाल हो चुकी";
+      item.append(usedLabel);
+    }
 
     list.append(item);
   }
@@ -503,6 +540,13 @@ async function loadDirectLinks() {
   const data = await adminAction({ action: "list-links" });
   directLinks = data.links || [];
   renderDirectLinks();
+
+  if (displayedNewLink) {
+    const currentLink = directLinks.find(
+      link => link.url === displayedNewLink
+    );
+    if (currentLink) updateNewLinkCopyState(currentLink);
+  }
 }
 
 async function refreshAll() {
@@ -642,6 +686,7 @@ $("directLinkForm").addEventListener("submit", async (event) => {
     $("newLinkNumber").textContent =
       "Link No. " + (data.link.link_number ?? data.link.id ?? "—");
     $("newLinkUrl").textContent = displayedNewLink;
+    updateNewLinkCopyState(data.link);
     $("newLinkResult").classList.remove("hidden");
 
     await loadDirectLinks();
