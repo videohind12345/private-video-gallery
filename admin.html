@@ -153,6 +153,7 @@
       <p class="muted">
         यहाँ लिंक नंबर, वीडियो का नाम, बनने का समय,
         पहली बार खुलने का समय और वीडियो पूरा होने का समय दिखेगा।
+        हर लिंक का रिकॉर्ड Delete किया जा सकता है।
       </p>
       <button id="refreshLinksBtn" class="secondary full" type="button">
         Direct Links Refresh करें
@@ -208,6 +209,7 @@
       <h2>📋 Access Code की सूची</h2>
       <p class="muted">
         यहाँ Access Code, संबंधित वीडियो, स्थिति और समय दिखाया जाएगा।
+        इस्तेमाल हो चुके और पुराने कोड भी Delete किए जा सकते हैं।
       </p>
       <div id="codeList"></div>
     </section>
@@ -432,6 +434,16 @@ function renderCodes() {
       item.append(revoke);
     }
 
+    // हर Access Code के लिए Delete बटन
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger";
+    deleteButton.textContent = "🗑️ Delete Access Code";
+    deleteButton.addEventListener("click", () =>
+      deleteAccessCode(code.id, code.access_code, deleteButton)
+    );
+    item.append(deleteButton);
+
     list.append(item);
   }
 }
@@ -531,6 +543,16 @@ function renderDirectLinks() {
       usedLabel.textContent = "इस्तेमाल हो चुकी";
       item.append(usedLabel);
     }
+
+    // हर Direct Link के लिए Delete बटन
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "danger";
+    deleteButton.textContent = "🗑️ Delete Link";
+    deleteButton.addEventListener("click", () =>
+      deleteDirectLink(link.id, link.link_number, deleteButton)
+    );
+    item.append(deleteButton);
 
     list.append(item);
   }
@@ -815,6 +837,72 @@ async function revokeCode(id, button) {
     setStatus("✅ Access Code बंद कर दिया गया।");
   } catch (e) {
     setStatus("Revoke असफल: " + e.message);
+    button.disabled = false;
+  } finally {
+    busy = false;
+  }
+}
+
+// Direct Link का रिकॉर्ड Delete करना — मूल वीडियो सुरक्षित रहेगा
+async function deleteDirectLink(id, linkNumber, button) {
+  if (busy) return;
+
+  const confirmed = confirm(
+    `क्या आप Link No. ${linkNumber ?? id} का रिकॉर्ड Delete करना चाहते हैं?\n\n` +
+    "सिर्फ इस Direct Link का रिकॉर्ड हटेगा। मूल अपलोड किया हुआ वीडियो सुरक्षित रहेगा।\n" +
+    "यह काम वापस नहीं किया जा सकता।"
+  );
+
+  if (!confirmed) return;
+
+  busy = true;
+  button.disabled = true;
+
+  try {
+    setStatus("Direct Link का रिकॉर्ड Delete हो रहा है…");
+
+    const result = await adminAction({
+      action: "delete-link",
+      link_id: id
+    });
+
+    await refreshAll();
+    setStatus("✅ " + (result.message || "Direct Link का रिकॉर्ड Delete हो गया।"));
+  } catch (e) {
+    setStatus("❌ Direct Link Delete नहीं हुई: " + e.message);
+    button.disabled = false;
+  } finally {
+    busy = false;
+  }
+}
+
+// Access Code का रिकॉर्ड Delete करना — मूल वीडियो सुरक्षित रहेगा
+async function deleteAccessCode(id, codeValue, button) {
+  if (busy) return;
+
+  const confirmed = confirm(
+    `क्या आप Access Code "${codeValue || id}" का रिकॉर्ड Delete करना चाहते हैं?\n\n` +
+    "सिर्फ Access Code का रिकॉर्ड हटेगा। मूल अपलोड किया हुआ वीडियो सुरक्षित रहेगा।\n" +
+    "यह काम वापस नहीं किया जा सकता।"
+  );
+
+  if (!confirmed) return;
+
+  busy = true;
+  button.disabled = true;
+
+  try {
+    setStatus("Access Code का रिकॉर्ड Delete हो रहा है…");
+
+    const result = await adminAction({
+      action: "delete-code",
+      code_id: id
+    });
+
+    await refreshAll();
+    setStatus("✅ " + (result.message || "Access Code का रिकॉर्ड Delete हो गया।"));
+  } catch (e) {
+    setStatus("❌ Access Code Delete नहीं हुआ: " + e.message);
     button.disabled = false;
   } finally {
     busy = false;
