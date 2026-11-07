@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -101,7 +102,7 @@
 <body>
   <main class="container">
     <h1>🔒 Private Video Gallery</h1>
-    <p>अपना वीडियो एक्सेस कोड डालें।</p>
+    <p id="pageDescription">अपना वीडियो एक्सेस कोड डालें।</p>
 
     <form id="accessForm">
       <input
@@ -146,10 +147,37 @@
     const videoPlayer = document.getElementById("videoPlayer");
     const backBtn = document.getElementById("backBtn");
 
+    let directToken = null;
+    let playbackSession = null;
+    let completionSent = false;
+
+    function showVideo(result) {
+      document.getElementById("videoTitle").textContent =
+        result.title || "आपकी वीडियो";
+
+      document.getElementById("videoDescription").textContent =
+        result.description || "";
+
+      videoPlayer.src = result.videoUrl;
+      videoArea.style.display = "block";
+      form.style.display = "none";
+
+      videoPlayer.load();
+
+      videoPlayer.play().catch(() => {
+        message.textContent =
+          "वीडियो तैयार है। चलाने के लिए Play दबाएँ।";
+      });
+    }
+
     function returnToCodePage() {
       videoPlayer.pause();
       videoPlayer.removeAttribute("src");
       videoPlayer.load();
+
+      directToken = null;
+      playbackSession = null;
+      completionSent = false;
 
       videoArea.style.display = "none";
       form.style.display = "block";
@@ -160,6 +188,87 @@
 
     backBtn.addEventListener("click", returnToCodePage);
 
+    // DIRECT LINK: URL में token होने पर वीडियो अपने आप खोलें।
+    async function openDirectLink(token) {
+      form.style.display = "none";
+      backBtn.style.display = "none";
+      message.textContent = "आपका वीडियो खोला जा रहा है...";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action: "open",
+            token: token
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success || !result.videoUrl) {
+          throw new Error(
+            result.error || "वीडियो लिंक नहीं खुल पाया।"
+          );
+        }
+
+        directToken = result.token;
+        playbackSession = result.playbackSession;
+        completionSent = false;
+
+        message.textContent = "वीडियो तैयार है।";
+        showVideo(result);
+
+      } catch (error) {
+        message.textContent =
+          error.message === "Failed to fetch"
+            ? "कनेक्शन नहीं हो पाया। इंटरनेट जाँचें।"
+            : error.message;
+      }
+    }
+
+    // वीडियो पूरा होने पर Admin को जानकारी भेजें।
+    videoPlayer.addEventListener("ended", async () => {
+      if (!directToken || !playbackSession || completionSent) {
+        return;
+      }
+
+      completionSent = true;
+      message.textContent = "वीडियो पूरा हो गया।";
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action: "complete",
+            token: directToken,
+            playbackSession: playbackSession
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          completionSent = false;
+          message.textContent =
+            "वीडियो पूरा हुआ, लेकिन स्थिति अपडेट नहीं हो सकी।";
+          return;
+        }
+
+        message.textContent = "वीडियो पूरा देखा गया। धन्यवाद!";
+      } catch (error) {
+        completionSent = false;
+        message.textContent =
+          "वीडियो पूरा हुआ, लेकिन सर्वर से संपर्क नहीं हो पाया।";
+      }
+    });
+
+    // पुराना ACCESS CODE सिस्टम चालू रहेगा।
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
@@ -174,6 +283,10 @@
       videoPlayer.pause();
       videoPlayer.removeAttribute("src");
       videoPlayer.load();
+
+      directToken = null;
+      playbackSession = null;
+      completionSent = false;
 
       try {
         const response = await fetch(API_URL, {
@@ -192,25 +305,11 @@
           );
         }
 
-        document.getElementById("videoTitle").textContent =
-          result.title || "आपकी वीडियो";
-
-        document.getElementById("videoDescription").textContent =
-          result.description || "";
-
-        videoPlayer.src = result.videoUrl;
-        videoArea.style.display = "block";
-        form.style.display = "none";
         message.textContent = "कोड सही है। वीडियो तैयार है।";
-
-        videoPlayer.load();
-
-        videoPlayer.play().catch(() => {
-          message.textContent =
-            "वीडियो तैयार है। चलाने के लिए Play दबाएँ।";
-        });
-
+        showVideo(result);
+        backBtn.style.display = "block";
         codeInput.value = "";
+
       } catch (error) {
         message.textContent =
           error.message === "Failed to fetch"
@@ -220,7 +319,20 @@
         submitBtn.disabled = false;
       }
     });
+
+    // पेज खुलते ही जाँचें कि Direct Link है या पुराना Code पेज।
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    if (token) {
+      document.getElementById("pageDescription").textContent =
+        "आपके लिए वीडियो तैयार किया जा रहा है।";
+
+      openDirectLink(token);
+    } else {
+      form.style.display = "block";
+      backBtn.style.display = "block";
+    }
   </script>
 </body>
 </html>
-
