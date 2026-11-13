@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -29,6 +30,9 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .bundle{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin:12px 0}
 .bundle h3{margin:0 0 8px;font-size:17px}
 .actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.linkPanel{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;padding:12px;margin-top:12px}
+.linkPanel strong{display:block;margin-bottom:8px;color:#166534}
+.linkInput{background:white;margin:5px 0 8px;font-size:13px}
 #loginBox{max-width:440px;margin:45px auto}
 hr{border:0;border-top:1px solid #e2e8f0;margin:16px 0}
 </style>
@@ -104,12 +108,14 @@ function show(id, message, isError=false){
   el.style.background=isError?"#fef2f2":"#eff6ff";
   el.style.color=isError?"#991b1b":"#1e3a8a";
 }
+
 function setBusy(id,busy,text){
   const b=document.getElementById(id);
   b.disabled=busy;
   if(busy){b.dataset.oldText=b.textContent;b.textContent=text||"कृपया प्रतीक्षा करें...";}
   else if(b.dataset.oldText){b.textContent=b.dataset.oldText;delete b.dataset.oldText;}
 }
+
 async function api(action, data={}){
   if(!currentSession) throw new Error("पहले Admin Login करें।");
   const response=await fetch(FUNCTION_URL,{
@@ -159,8 +165,84 @@ function getLinkToken(result){
   const l=result.link||{};
   return l.link_token||l.token||result.link_token||result.token||"";
 }
+
 function makeViewerUrl(token){
   return VIEWER_PAGE+"?token="+encodeURIComponent(token);
+}
+
+// मोबाइल नंबर को WhatsApp के लिए तैयार करना
+function whatsappNumber(phone){
+  let digits=String(phone||"").replace(/\D/g,"");
+  if(digits.length===10) digits="91"+digits;
+  return digits;
+}
+
+// लिंक कॉपी करने का फंक्शन
+async function copyViewerLink(url,button){
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(url);
+    }else{
+      const input=document.createElement("textarea");
+      input.value=url;
+      input.style.position="fixed";
+      input.style.opacity="0";
+      document.body.appendChild(input);
+      input.select();
+      const copied=document.execCommand("copy");
+      input.remove();
+      if(!copied) throw new Error("Copy नहीं हो पाया।");
+    }
+
+    const oldText=button.textContent;
+    button.textContent="कॉपी हो गया!";
+    button.style.background="#15803d";
+    setTimeout(()=>{
+      button.textContent=oldText;
+      button.style.background="";
+    },2500);
+  }catch(e){
+    alert("लिंक कॉपी नहीं हो पाया। नीचे दिए लिंक को खुद Select करके Copy करें।");
+  }
+}
+
+// लिंक दिखाने और दोनों बटन बनाने का फंक्शन
+function showLinkActions(containerId,url,phone){
+  const box=document.getElementById(containerId);
+  box.classList.remove("hidden");
+
+  const panel=document.createElement("div");
+  panel.className="linkPanel";
+
+  const heading=document.createElement("strong");
+  heading.textContent="ग्राहक का पूरा वीडियो लिंक:";
+
+  const input=document.createElement("input");
+  input.className="linkInput";
+  input.type="text";
+  input.readOnly=true;
+  input.value=url;
+
+  const copyButton=document.createElement("button");
+  copyButton.type="button";
+  copyButton.textContent="लिंक कॉपी करें";
+  copyButton.onclick=()=>copyViewerLink(url,copyButton);
+
+  const whatsappButton=document.createElement("button");
+  whatsappButton.type="button";
+  whatsappButton.className="green";
+  whatsappButton.textContent="WhatsApp पर भेजें";
+  whatsappButton.onclick=()=>{
+    const message="नमस्ते!\nआपके वीडियो देखने का लिंक:\n"+url;
+    const number=whatsappNumber(phone);
+    const waUrl=number
+      ? "https://wa.me/"+number+"?text="+encodeURIComponent(message)
+      : "https://wa.me/?text="+encodeURIComponent(message);
+    window.open(waUrl,"_blank");
+  };
+
+  panel.append(heading,input,copyButton,whatsappButton);
+  box.appendChild(panel);
 }
 
 async function uploadOne(bundleId,file,order){
@@ -214,24 +296,18 @@ async function createPackage(){
     const linkResult=await api("create-link",{bundle_id:bundleId});
     const token=getLinkToken(linkResult);
     if(!token) throw new Error("लिंक बना, लेकिन response में link token नहीं मिला।");
-    const url=makeViewerUrl(token);
 
-    show("createStatus","सफलता! चारों वीडियो अपलोड हो गए और नया लिंक बन गया:\n"+url);
+    const url=makeViewerUrl(token);
+    show("createStatus","सफलता! चारों वीडियो अपलोड हो गए और नया लिंक बन गया।");
+
+    // लिंक कॉपी और WhatsApp बटन दिखाएँ
+    showLinkActions("createStatus",url,phone);
+
     document.getElementById("customerName").value="";
     document.getElementById("phoneNumber").value="";
     document.getElementById("bundleTitle").value="";
     [1,2,3,4].forEach(n=>document.getElementById("video"+n).value="");
-    const wa="आपके वीडियो देखने का लिंक:\n"+url;
-    const waUrl="https://wa.me/?text="+encodeURIComponent(wa);
-    const box=document.getElementById("createStatus");
-    const copy=document.createElement("button");
-    copy.textContent="लिंक Copy करें";
-    copy.onclick=()=>navigator.clipboard.writeText(url).then(()=>alert("लिंक कॉपी हो गया।"));
-    const whatsapp=document.createElement("button");
-    whatsapp.className="green";whatsapp.textContent="WhatsApp पर भेजें";
-    whatsapp.onclick=()=>window.open(waUrl,"_blank");
-    box.appendChild(document.createElement("br"));
-    box.appendChild(copy);box.appendChild(whatsapp);
+
     await loadBundles();
   }catch(e){
     show("createStatus","त्रुटि: "+e.message+"\nअगर package बन चुका है तो उसे Customer Packages में देखें।",true);
@@ -246,11 +322,14 @@ async function loadBundles(){
     const bundles=result.bundles||[];
     list.innerHTML="";
     if(!bundles.length){list.textContent="अभी कोई Customer Package नहीं है।";return;}
+
     bundles.forEach(b=>{
       const div=document.createElement("div");
       div.className="bundle";
+
       const title=document.createElement("h3");
       title.textContent=b.customer_name||"ग्राहक";
+
       const details=document.createElement("div");
       details.className="small";
       details.textContent=
@@ -264,16 +343,23 @@ async function loadBundles(){
 
       const actions=document.createElement("div");
       actions.className="actions";
-      const linkBtn=makeButton("नया Link बनाएँ","",()=>newLink(b.id));
-      const downloadBtn=makeButton(b.download_enabled?"Download OFF करें":"Download ON करें",b.download_enabled?"orange":"green",()=>toggleDownload(b.id,!b.download_enabled));
+
+      const linkBtn=makeButton("नया Link बनाएँ","",()=>newLink(b.id,b.phone_number));
+      const downloadBtn=makeButton(
+        b.download_enabled?"Download OFF करें":"Download ON करें",
+        b.download_enabled?"orange":"green",
+        ()=>toggleDownload(b.id,!b.download_enabled)
+      );
       const resetBtn=makeButton("Download Reset","secondary",()=>resetDownload(b.id));
       const disableBtn=makeButton("सभी Links बंद करें","red",()=>disableLinks(b.id));
+
       actions.append(linkBtn,downloadBtn,resetBtn,disableBtn);
       div.appendChild(actions);
       list.appendChild(div);
     });
   }catch(e){list.textContent="लिस्ट लोड नहीं हुई: "+e.message;}
 }
+
 function makeButton(label,cls,handler){
   const b=document.createElement("button");
   b.textContent=label;
@@ -281,19 +367,23 @@ function makeButton(label,cls,handler){
   b.onclick=handler;
   return b;
 }
-async function newLink(bundleId){
+
+async function newLink(bundleId,phone){
   if(!confirm("इस ग्राहक का नया लिंक बनाएँ? पुराने लिंक बंद हो जाएँगे। Download quota Reset नहीं होगा।"))return;
+
   try{
     const r=await api("create-link",{bundle_id:bundleId});
     const token=getLinkToken(r);
     if(!token)throw new Error("Link token response में नहीं मिला।");
+
     const url=makeViewerUrl(token);
-    show("topStatus","नया लिंक बन गया:\n"+url);
-    const share="आपके वीडियो देखने का नया लिंक:\n"+url;
-    if(confirm("लिंक बन गया। WhatsApp पर शेयर करना चाहते हैं?"))window.open("https://wa.me/?text="+encodeURIComponent(share),"_blank");
+    show("topStatus","नया लिंक सफलतापूर्वक बन गया।");
+    showLinkActions("topStatus",url,phone);
+
     await loadBundles();
   }catch(e){show("topStatus","लिंक नहीं बना: "+e.message,true);}
 }
+
 async function toggleDownload(bundleId,enabled){
   try{
     await api("set-download",{bundle_id:bundleId,enabled});
@@ -301,6 +391,7 @@ async function toggleDownload(bundleId,enabled){
     await loadBundles();
   }catch(e){show("topStatus",e.message,true);}
 }
+
 async function resetDownload(bundleId){
   if(!confirm("क्या इस ग्राहक का एक बार वाला Download quota Reset करना है?"))return;
   try{
@@ -309,6 +400,7 @@ async function resetDownload(bundleId){
     await loadBundles();
   }catch(e){show("topStatus",e.message,true);}
 }
+
 async function disableLinks(bundleId){
   if(!confirm("इस ग्राहक के सभी पुराने links बंद कर दें?"))return;
   try{
