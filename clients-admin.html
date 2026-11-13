@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLIENTS KE VIDEO - Admin Panel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f5f9;font-family:Arial,sans-serif;color:#202938}
+header{background:#172554;color:white;padding:20px}
+header h1{margin:0;font-size:23px}
+header p{margin:7px 0 0;color:#dbeafe}
+main{max-width:950px;margin:22px auto;padding:0 14px}
+.card{background:white;border-radius:12px;padding:19px;margin-bottom:18px;box-shadow:0 2px 10px #0000000b}
+h2{font-size:19px;margin:0 0 15px}
+label{display:block;font-weight:bold;font-size:14px;margin:12px 0 6px}
+input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px}
+input[type=file]{background:#f8fafc}
+button{border:0;border-radius:8px;padding:11px 14px;font-size:14px;font-weight:bold;cursor:pointer;margin:5px 4px 5px 0;background:#1d4ed8;color:white}
+button:disabled{opacity:.55;cursor:not-allowed}
+.secondary{background:#475569}
+.green{background:#15803d}
+.orange{background:#b45309}
+.red{background:#b91c1c}
+.small{font-size:13px;color:#64748b;line-height:1.5}
+.status{padding:11px;border-radius:8px;background:#eff6ff;margin:12px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.hidden{display:none!important}
+.bundle{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin:12px 0}
+.bundle h3{margin:0 0 8px;font-size:17px}
+.actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+#loginBox{max-width:440px;margin:45px auto}
+hr{border:0;border-top:1px solid #e2e8f0;margin:16px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>CLIENTS KE VIDEO</h1>
+  <p>Admin Panel — ग्राहक वीडियो और लिंक मैनेजमेंट</p>
+</header>
+
+<main>
+  <section class="card" id="loginBox">
+    <h2>Admin Login</h2>
+    <p class="small">अपने मौजूदा Supabase Admin ईमेल और पासवर्ड से लॉगिन करें।</p>
+    <label>ईमेल</label>
+    <input id="email" type="email" autocomplete="username" placeholder="Admin email">
+    <label>पासवर्ड</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+    <button id="loginBtn" onclick="login()">Login</button>
+    <div id="loginStatus" class="status hidden"></div>
+  </section>
+
+  <section id="adminArea" class="hidden">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">Admin Dashboard</h2>
+        <button class="secondary" onclick="logout()">Logout</button>
+      </div>
+      <div id="topStatus" class="status">लॉगिन सफल।</div>
+      <button class="secondary" onclick="loadBundles()">Refresh Customer List</button>
+    </div>
+
+    <div class="card">
+      <h2>नया Customer Package बनाएँ</h2>
+      <label>ग्राहक का नाम</label>
+      <input id="customerName" type="text" placeholder="ग्राहक का नाम">
+      <label>मोबाइल नंबर</label>
+      <input id="phoneNumber" type="tel" placeholder="मोबाइल नंबर">
+      <label>वीडियो का Title / Heading</label>
+      <input id="bundleTitle" type="text" placeholder="वीडियो का शीर्षक">
+      <hr>
+      <h2 style="font-size:16px">चार वीडियो चुनें</h2>
+      <p class="small">एक पैकेज में ठीक 4 वीडियो चुनना जरूरी है। वीडियो एक-एक करके सुरक्षित Storage में अपलोड होंगे।</p>
+      <label>वीडियो 1</label><input id="video1" type="file" accept="video/*">
+      <label>वीडियो 2</label><input id="video2" type="file" accept="video/*">
+      <label>वीडियो 3</label><input id="video3" type="file" accept="video/*">
+      <label>वीडियो 4</label><input id="video4" type="file" accept="video/*">
+      <button id="createBtn" class="green" onclick="createPackage()">चारों वीडियो अपलोड करके लिंक बनाएँ</button>
+      <div id="createStatus" class="status hidden"></div>
+    </div>
+
+    <div class="card">
+      <h2>Customer Packages</h2>
+      <div id="bundleList" class="small">लोड हो रहा है...</div>
+    </div>
+  </section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://wiwljnfcpcbjvvcewpye.supabase.co";
+const SUPABASE_KEY = "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
+const FUNCTION_URL = SUPABASE_URL + "/functions/v1/clients-video";
+const BUCKET = "clients-videos";
+const VIEWER_PAGE = "https://videohind12345.github.io/private-video-gallery/clients.html";
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentSession = null;
+
+function show(id, message, isError=false){
+  const el=document.getElementById(id);
+  el.textContent=message;
+  el.classList.remove("hidden");
+  el.style.background=isError?"#fef2f2":"#eff6ff";
+  el.style.color=isError?"#991b1b":"#1e3a8a";
+}
+function setBusy(id,busy,text){
+  const b=document.getElementById(id);
+  b.disabled=busy;
+  if(busy){b.dataset.oldText=b.textContent;b.textContent=text||"कृपया प्रतीक्षा करें...";}
+  else if(b.dataset.oldText){b.textContent=b.dataset.oldText;delete b.dataset.oldText;}
+}
+async function api(action, data={}){
+  if(!currentSession) throw new Error("पहले Admin Login करें।");
+  const response=await fetch(FUNCTION_URL,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":"Bearer "+currentSession.access_token
+    },
+    body:JSON.stringify({action,...data})
+  });
+  const result=await response.json().catch(()=>({error:"Server से सही response नहीं मिला।"}));
+  if(!response.ok || result.error || result.success===false){
+    throw new Error(result.error || ("Request failed: "+response.status));
+  }
+  return result;
+}
+
+async function login(){
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+  if(!email||!password){show("loginStatus","ईमेल और पासवर्ड भरें।",true);return;}
+  setBusy("loginBtn",true,"Login हो रहा है...");
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    currentSession=data.session;
+    await api("check");
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("adminArea").classList.remove("hidden");
+    show("topStatus","Admin Login सफल।");
+    await loadBundles();
+  }catch(e){
+    currentSession=null;
+    show("loginStatus",e.message,true);
+  }finally{setBusy("loginBtn",false);}
+}
+
+async function logout(){
+  await sb.auth.signOut();
+  currentSession=null;
+  document.getElementById("adminArea").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+  document.getElementById("password").value="";
+}
+
+function getLinkToken(result){
+  const l=result.link||{};
+  return l.link_token||l.token||result.link_token||result.token||"";
+}
+function makeViewerUrl(token){
+  return VIEWER_PAGE+"?token="+encodeURIComponent(token);
+}
+
+async function uploadOne(bundleId,file,order){
+  const created=await api("create-upload",{
+    bundle_id:bundleId,
+    file_name:file.name
+  });
+  const up=created.upload||created;
+  const path=up.path||up.storage_path;
+  const token=up.token;
+  if(!path||!token) throw new Error("Upload URL/Token नहीं मिला: "+file.name);
+
+  const {data,error}=await sb.storage.from(BUCKET).uploadToSignedUrl(
+    path,token,file,{contentType:file.type||"video/mp4", upsert:false}
+  );
+  if(error) throw error;
+
+  await api("register-video",{
+    bundle_id:bundleId,
+    storage_path:path,
+    file_name:file.name,
+    sort_order:order
+  });
+}
+
+async function createPackage(){
+  const name=document.getElementById("customerName").value.trim();
+  const phone=document.getElementById("phoneNumber").value.trim();
+  const title=document.getElementById("bundleTitle").value.trim();
+  const files=[1,2,3,4].map(n=>document.getElementById("video"+n).files[0]);
+
+  if(!name||!phone||!title){show("createStatus","ग्राहक का नाम, मोबाइल नंबर और Title भरें।",true);return;}
+  if(files.some(f=>!f)){show("createStatus","कृपया चारों वीडियो चुनें।",true);return;}
+
+  setBusy("createBtn",true,"पैकेज बनाया जा रहा है...");
+  try{
+    show("createStatus","Customer package बनाया जा रहा है...");
+    const created=await api("create-bundle",{
+      customer_name:name, phone_number:phone, title
+    });
+    const bundle=created.bundle||created;
+    const bundleId=bundle.id||bundle.bundle_id;
+    if(!bundleId) throw new Error("Package ID response में नहीं मिली।");
+
+    for(let i=0;i<4;i++){
+      show("createStatus","वीडियो "+(i+1)+"/4 अपलोड हो रहा है: "+files[i].name);
+      await uploadOne(bundleId,files[i],i+1);
+    }
+
+    show("createStatus","चारों वीडियो अपलोड हो गए। अब लिंक बनाया जा रहा है...");
+    const linkResult=await api("create-link",{bundle_id:bundleId});
+    const token=getLinkToken(linkResult);
+    if(!token) throw new Error("लिंक बना, लेकिन response में link token नहीं मिला।");
+    const url=makeViewerUrl(token);
+
+    show("createStatus","सफलता! चारों वीडियो अपलोड हो गए और नया लिंक बन गया:\n"+url);
+    document.getElementById("customerName").value="";
+    document.getElementById("phoneNumber").value="";
+    document.getElementById("bundleTitle").value="";
+    [1,2,3,4].forEach(n=>document.getElementById("video"+n).value="");
+    const wa="आपके वीडियो देखने का लिंक:\n"+url;
+    const waUrl="https://wa.me/?text="+encodeURIComponent(wa);
+    const box=document.getElementById("createStatus");
+    const copy=document.createElement("button");
+    copy.textContent="लिंक Copy करें";
+    copy.onclick=()=>navigator.clipboard.writeText(url).then(()=>alert("लिंक कॉपी हो गया।"));
+    const whatsapp=document.createElement("button");
+    whatsapp.className="green";whatsapp.textContent="WhatsApp पर भेजें";
+    whatsapp.onclick=()=>window.open(waUrl,"_blank");
+    box.appendChild(document.createElement("br"));
+    box.appendChild(copy);box.appendChild(whatsapp);
+    await loadBundles();
+  }catch(e){
+    show("createStatus","त्रुटि: "+e.message+"\nअगर package बन चुका है तो उसे Customer Packages में देखें।",true);
+  }finally{setBusy("createBtn",false);}
+}
+
+async function loadBundles(){
+  const list=document.getElementById("bundleList");
+  list.textContent="लोड हो रहा है...";
+  try{
+    const result=await api("list-bundles");
+    const bundles=result.bundles||[];
+    list.innerHTML="";
+    if(!bundles.length){list.textContent="अभी कोई Customer Package नहीं है।";return;}
+    bundles.forEach(b=>{
+      const div=document.createElement("div");
+      div.className="bundle";
+      const title=document.createElement("h3");
+      title.textContent=b.customer_name||"ग्राहक";
+      const details=document.createElement("div");
+      details.className="small";
+      details.textContent=
+        "मोबाइल: "+(b.phone_number||"-")+
+        "\nTitle: "+(b.title||"-")+
+        "\nDownload: "+(b.download_enabled?"ON":"OFF")+
+        "\nDownload इस्तेमाल: "+(b.download_used?"हाँ":"नहीं")+
+        "\nPackage: "+(b.is_active===false?"Inactive":"Active");
+      details.style.whiteSpace="pre-line";
+      div.append(title,details);
+
+      const actions=document.createElement("div");
+      actions.className="actions";
+      const linkBtn=makeButton("नया Link बनाएँ","",()=>newLink(b.id));
+      const downloadBtn=makeButton(b.download_enabled?"Download OFF करें":"Download ON करें",b.download_enabled?"orange":"green",()=>toggleDownload(b.id,!b.download_enabled));
+      const resetBtn=makeButton("Download Reset","secondary",()=>resetDownload(b.id));
+      const disableBtn=makeButton("सभी Links बंद करें","red",()=>disableLinks(b.id));
+      actions.append(linkBtn,downloadBtn,resetBtn,disableBtn);
+      div.appendChild(actions);
+      list.appendChild(div);
+    });
+  }catch(e){list.textContent="लिस्ट लोड नहीं हुई: "+e.message;}
+}
+function makeButton(label,cls,handler){
+  const b=document.createElement("button");
+  b.textContent=label;
+  if(cls)b.className=cls;
+  b.onclick=handler;
+  return b;
+}
+async function newLink(bundleId){
+  if(!confirm("इस ग्राहक का नया लिंक बनाएँ? पुराने लिंक बंद हो जाएँगे। Download quota Reset नहीं होगा।"))return;
+  try{
+    const r=await api("create-link",{bundle_id:bundleId});
+    const token=getLinkToken(r);
+    if(!token)throw new Error("Link token response में नहीं मिला।");
+    const url=makeViewerUrl(token);
+    show("topStatus","नया लिंक बन गया:\n"+url);
+    const share="आपके वीडियो देखने का नया लिंक:\n"+url;
+    if(confirm("लिंक बन गया। WhatsApp पर शेयर करना चाहते हैं?"))window.open("https://wa.me/?text="+encodeURIComponent(share),"_blank");
+    await loadBundles();
+  }catch(e){show("topStatus","लिंक नहीं बना: "+e.message,true);}
+}
+async function toggleDownload(bundleId,enabled){
+  try{
+    await api("set-download",{bundle_id:bundleId,enabled});
+    show("topStatus","Download "+(enabled?"ON":"OFF")+" कर दिया गया।");
+    await loadBundles();
+  }catch(e){show("topStatus",e.message,true);}
+}
+async function resetDownload(bundleId){
+  if(!confirm("क्या इस ग्राहक का एक बार वाला Download quota Reset करना है?"))return;
+  try{
+    await api("reset-download",{bundle_id:bundleId});
+    show("topStatus","Download quota Reset हो गया। Download ON/OFF की मौजूदा सेटिंग नहीं बदली।");
+    await loadBundles();
+  }catch(e){show("topStatus",e.message,true);}
+}
+async function disableLinks(bundleId){
+  if(!confirm("इस ग्राहक के सभी पुराने links बंद कर दें?"))return;
+  try{
+    await api("disable-links",{bundle_id:bundleId});
+    show("topStatus","इस ग्राहक के सभी links बंद कर दिए गए।");
+    await loadBundles();
+  }catch(e){show("topStatus",e.message,true);}
+}
+
+(async()=>{
+  const {data}=await sb.auth.getSession();
+  if(data.session){
+    currentSession=data.session;
+    try{
+      await api("check");
+      document.getElementById("loginBox").classList.add("hidden");
+      document.getElementById("adminArea").classList.remove("hidden");
+      await loadBundles();
+    }catch(e){currentSession=null;}
+  }
+})();
+</script>
+</body>
+</html>
