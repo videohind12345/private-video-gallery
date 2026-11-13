@@ -35,6 +35,15 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .linkInput{background:white;margin:5px 0 8px;font-size:13px}
 #loginBox{max-width:440px;margin:45px auto}
 hr{border:0;border-top:1px solid #e2e8f0;margin:16px 0}
+.activityBox{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px;margin-top:13px}
+.activityBox h4{margin:0 0 10px;font-size:15px}
+.activityItem{background:white;border:1px solid #e2e8f0;border-radius:7px;padding:10px;margin:7px 0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.activityTime{color:#475569;font-size:12px}
+.event-opened{border-left:4px solid #15803d}
+.event-exited{border-left:4px solid #64748b}
+.event-reopen{border-left:4px solid #b45309}
+.noActivity{font-size:13px;color:#64748b;padding:8px 0}
+.linkHeading{font-size:13px;font-weight:bold;margin-top:12px}
 </style>
 </head>
 <body>
@@ -86,6 +95,7 @@ hr{border:0;border-top:1px solid #e2e8f0;margin:16px 0}
 
     <div class="card">
       <h2>Customer Packages</h2>
+      <p class="small">ग्राहक की लिंक गतिविधि देखने के लिए नीचे Activity History देखें। नई जानकारी के लिए Refresh Customer List दबाएँ।</p>
       <div id="bundleList" class="small">लोड हो रहा है...</div>
     </div>
   </section>
@@ -326,6 +336,92 @@ async function createPackage(){
   }
 }
 
+// Activity History दिखाने के लिए तारीख और समय
+function formatActivityTime(value){
+  if(!value)return "समय उपलब्ध नहीं";
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime()))return String(value);
+  return date.toLocaleString("en-IN",{
+    day:"2-digit",
+    month:"short",
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit",
+    second:"2-digit",
+    hour12:true
+  });
+}
+
+function eventDetails(type){
+  if(type==="opened"){
+    return {label:"लिंक पहली बार खोला",css:"event-opened"};
+  }
+  if(type==="exited"){
+    return {label:"ग्राहक वीडियो पेज से बाहर निकला",css:"event-exited"};
+  }
+  if(type==="reopen_attempt"){
+    return {label:"लिंक दोबारा खोलने की कोशिश",css:"event-reopen"};
+  }
+  return {label:type||"अनजान गतिविधि",css:""};
+}
+
+function renderActivity(bundle){
+  const box=document.createElement("div");
+  box.className="activityBox";
+
+  const heading=document.createElement("h4");
+  heading.textContent="ग्राहक Link Activity History";
+  box.appendChild(heading);
+
+  // API response में links की संभावित property names
+  const links=bundle.links||bundle.clients_links||bundle.clientsLinks||[];
+
+  if(!Array.isArray(links)||links.length===0){
+    const empty=document.createElement("div");
+    empty.className="noActivity";
+    empty.textContent="इस ग्राहक के लिंक की जानकारी अभी उपलब्ध नहीं है।";
+    box.appendChild(empty);
+    return box;
+  }
+
+  links.forEach((link,index)=>{
+    const linkHeading=document.createElement("div");
+    linkHeading.className="linkHeading";
+    const status=link.status|| (link.is_active===false?"Inactive":"");
+    linkHeading.textContent="Link "+(index+1)+(status?" — "+status:"");
+    box.appendChild(linkHeading);
+
+    const activity=Array.isArray(link.activity)?link.activity:[];
+    if(activity.length===0){
+      const empty=document.createElement("div");
+      empty.className="noActivity";
+      empty.textContent="अभी इस लिंक की कोई Activity रिकॉर्ड नहीं हुई है।";
+      box.appendChild(empty);
+      return;
+    }
+
+    activity.slice().sort((a,b)=>{
+      return new Date(b.created_at||0)-new Date(a.created_at||0);
+    }).forEach(item=>{
+      const details=eventDetails(item.event_type);
+      const row=document.createElement("div");
+      row.className="activityItem "+details.css;
+
+      const eventName=document.createElement("strong");
+      eventName.textContent=details.label;
+
+      const time=document.createElement("div");
+      time.className="activityTime";
+      time.textContent="समय: "+formatActivityTime(item.created_at);
+
+      row.append(eventName,time);
+      box.appendChild(row);
+    });
+  });
+
+  return box;
+}
+
 async function loadBundles(){
   const list=document.getElementById("bundleList");
   list.textContent="लोड हो रहा है...";
@@ -356,6 +452,9 @@ async function loadBundles(){
       details.style.whiteSpace="pre-line";
       div.append(title,details);
 
+      // ग्राहक की Activity History
+      div.appendChild(renderActivity(b));
+
       const actions=document.createElement("div");
       actions.className="actions";
 
@@ -367,8 +466,6 @@ async function loadBundles(){
       );
       const resetBtn=makeButton("Download Reset","secondary",()=>resetDownload(b.id));
       const disableBtn=makeButton("सभी Links बंद करें","red",()=>disableLinks(b.id));
-
-      // नया Delete Button
       const deleteBtn=makeButton("ग्राहक डिलीट करें","red",()=>deleteBundle(b.id,b.customer_name));
 
       actions.append(linkBtn,downloadBtn,resetBtn,disableBtn,deleteBtn);
@@ -438,7 +535,6 @@ async function disableLinks(bundleId){
   }
 }
 
-// ग्राहक का पूरा Package Delete करने का फंक्शन
 async function deleteBundle(bundleId,customerName){
   const name=customerName||"इस ग्राहक";
   const confirmed=confirm(
@@ -452,12 +548,9 @@ async function deleteBundle(bundleId,customerName){
 
   try{
     show("topStatus",name+" का Package डिलीट किया जा रहा है...");
-
     await api("delete-bundle",{bundle_id:bundleId});
-
     show("topStatus",name+" का Package डिलीट हो गया।");
     await loadBundles();
-
   }catch(e){
     show("topStatus","Package डिलीट नहीं हुआ: "+e.message,true);
   }
