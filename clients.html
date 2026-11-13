@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>आपके वीडियो</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:#172033;font-family:Arial,sans-serif}
+header{background:#172554;color:white;padding:22px 16px;text-align:center}
+header h1{font-size:23px;margin:0}
+header p{margin:8px 0 0;color:#dbeafe;font-size:14px}
+main{max-width:850px;margin:22px auto;padding:0 13px}
+.card{background:white;border-radius:13px;padding:17px;margin-bottom:16px;box-shadow:0 2px 12px #0000000b}
+#heading{font-size:21px;margin:0 0 8px}
+#message{padding:13px;border-radius:9px;background:#eff6ff;color:#1e3a8a;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+.video-card{background:white;border-radius:12px;padding:13px;margin:15px 0;box-shadow:0 2px 12px #0000000b}
+.video-card h3{font-size:16px;margin:0 0 10px}
+video{width:100%;max-height:480px;background:#000;border-radius:8px}
+button{background:#15803d;color:white;border:0;border-radius:8px;padding:12px 16px;font-weight:bold;font-size:14px;cursor:pointer;margin-top:10px}
+button:disabled{opacity:.55;cursor:not-allowed}
+.small{font-size:13px;color:#64748b;line-height:1.5}
+.hidden{display:none!important}
+footer{text-align:center;padding:20px;color:#64748b;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>आपके वीडियो</h1>
+  <p>CLIENTS KE VIDEO</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2 id="heading">आपके वीडियो लोड हो रहे हैं...</h2>
+    <div id="message">कृपया प्रतीक्षा करें...</div>
+  </section>
+  <section id="videos"></section>
+  <section class="card small">
+    <strong>महत्वपूर्ण जानकारी:</strong>
+    <p>यह लिंक उसी ब्राउज़र में इस्तेमाल करें जिसमें पहली बार खोला गया था। ब्राउज़र का डेटा साफ करने या दूसरे ब्राउज़र/डिवाइस पर खोलने से पहुँच बंद हो सकती है।</p>
+    <p>डाउनलोड की सुविधा Admin द्वारा नियंत्रित होती है। एक पैकेज से अधिकतम एक वीडियो डाउनलोड किया जा सकता है।</p>
+  </section>
+</main>
+
+<footer>CLIENTS KE VIDEO</footer>
+
+<script>
+const SUPABASE_URL = "https://wiwljnfcpcbjvvcewpye.supabase.co";
+const SUPABASE_KEY = "sb_publishable_gPr4GKX9xGVCMzDMYqqkrg_Chyj-GmH";
+const FUNCTION_URL = SUPABASE_URL + "/functions/v1/clients-video";
+
+const params = new URLSearchParams(window.location.search);
+const linkToken = params.get("token");
+
+function message(text,isError=false){
+  const el=document.getElementById("message");
+  el.textContent=text;
+  el.style.background=isError?"#fef2f2":"#eff6ff";
+  el.style.color=isError?"#991b1b":"#1e3a8a";
+}
+function hex(buffer){
+  return Array.from(new Uint8Array(buffer))
+    .map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function getViewerKeyHash(){
+  let key=localStorage.getItem("clients_video_viewer_key");
+  if(!key){
+    key=crypto.randomUUID()+"-"+crypto.randomUUID();
+    localStorage.setItem("clients_video_viewer_key",key);
+  }
+  const bytes=new TextEncoder().encode(key);
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return hex(digest);
+}
+async function callFunction(action,data={}){
+  const response=await fetch(FUNCTION_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action,...data})
+  });
+  const result=await response.json().catch(()=>({error:"Server से सही जवाब नहीं मिला।"}));
+  if(!response.ok||result.error||result.success===false){
+    throw new Error(result.error||("Request failed: "+response.status));
+  }
+  return result;
+}
+
+function createVideoCard(video,index,downloadAllowed,downloadUsed,viewerKeyHash){
+  const card=document.createElement("article");
+  card.className="video-card";
+
+  const title=document.createElement("h3");
+  title.textContent="वीडियो "+(index+1);
+
+  const player=document.createElement("video");
+  player.controls=true;
+  player.playsInline=true;
+  player.preload="metadata";
+  player.src=video.videoUrl;
+  player.addEventListener("error",()=>{
+    const note=document.createElement("p");
+    note.className="small";
+    note.textContent="वीडियो लोड नहीं हुआ। पेज Refresh करके दोबारा कोशिश करें।";
+    card.appendChild(note);
+  },{once:true});
+
+  card.append(title,player);
+
+  if(downloadAllowed&&!downloadUsed){
+    const btn=document.createElement("button");
+    btn.textContent="यह वीडियो डाउनलोड करें";
+    btn.onclick=async()=>{
+      if(!confirm("क्या आप यही वीडियो डाउनलोड करना चाहते हैं? इस पैकेज का एकमात्र डाउनलोड इस्तेमाल हो जाएगा।"))return;
+      btn.disabled=true;
+      btn.textContent="डाउनलोड तैयार हो रहा है...";
+      try{
+        const result=await callFunction("download",{
+          token:linkToken,
+          video_id:video.id,
+          viewer_key_hash:viewerKeyHash
+        });
+        if(!result.downloadUrl)throw new Error("Download URL नहीं मिला।");
+        const a=document.createElement("a");
+        a.href=result.downloadUrl;
+        a.target="_blank";
+        a.rel="noopener";
+        a.download=result.fileName||video.file_name||"video";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        message("डाउनलोड की अनुमति इस्तेमाल हो गई है। इस पैकेज से अब दूसरा वीडियो डाउनलोड नहीं किया जा सकता।");
+        document.querySelectorAll(".download-button").forEach(x=>x.remove());
+        btn.remove();
+      }catch(e){
+        message("डाउनलोड नहीं हुआ: "+e.message,true);
+        btn.disabled=false;
+        btn.textContent="यह वीडियो डाउनलोड करें";
+      }
+    };
+    btn.className="download-button";
+    card.appendChild(btn);
+  }
+  return card;
+}
+
+async function start(){
+  if(!linkToken){
+    document.getElementById("heading").textContent="लिंक उपलब्ध नहीं है";
+    message("यह वीडियो लिंक अधूरा है। कृपया Admin से सही लिंक लें।",true);
+    return;
+  }
+  try{
+    if(!window.crypto||!crypto.subtle||!crypto.randomUUID){
+      throw new Error("इस ब्राउज़र में सुरक्षित पहचान सुविधा उपलब्ध नहीं है। Chrome के नए संस्करण में लिंक खोलें।");
+    }
+    const viewerKeyHash=await getViewerKeyHash();
+    const result=await callFunction("open",{
+      token:linkToken,
+      viewer_key_hash:viewerKeyHash
+    });
+
+    document.getElementById("heading").textContent=result.title||"आपके वीडियो";
+    const videos=result.videos||[];
+    if(videos.length!==4){
+      throw new Error("चारों वीडियो उपलब्ध नहीं हैं। कृपया Admin से संपर्क करें।");
+    }
+
+    const customer=result.customerName?("नमस्ते "+result.customerName+"! आपके वीडियो नीचे हैं।"):"आपके चारों वीडियो तैयार हैं।";
+    const downloadText=result.downloadUsed
+      ?"इस पैकेज का एकमात्र डाउनलोड पहले ही इस्तेमाल हो चुका है।"
+      :(result.downloadAllowed
+        ?"आप एक वीडियो डाउनलोड कर सकते हैं।"
+        :"डाउनलोड की सुविधा अभी Admin ने चालू नहीं की है।");
+
+    message(customer+"\n"+downloadText+"\nवीडियो लिंक कुछ समय बाद समाप्त हो सकते हैं; जरूरत हो तो पेज Refresh करें।");
+
+    const container=document.getElementById("videos");
+    container.innerHTML="";
+    videos.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    videos.forEach((video,index)=>{
+      if(!video.id||!video.videoUrl)throw new Error("एक वीडियो का लिंक सही नहीं मिला।");
+      container.appendChild(createVideoCard(
+        video,index,!!result.downloadAllowed,!!result.downloadUsed,viewerKeyHash
+      ));
+    });
+  }catch(e){
+    document.getElementById("heading").textContent="वीडियो नहीं खुल पाए";
+    message(e.message+"\n\nकृपया लिंक और इंटरनेट कनेक्शन जाँचें। जरूरत होने पर Admin से नया लिंक लें।",true);
+  }
+}
+start();
+</script>
+</body>
+</html>
