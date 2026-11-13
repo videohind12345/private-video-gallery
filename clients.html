@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -29,7 +30,6 @@ footer{text-align:center;padding:20px;color:#64748b;font-size:12px}
   <h1>आपके वीडियो</h1>
   <p>CLIENTS KE VIDEO</p>
 </header>
-
 <main>
   <section class="card">
     <h2 id="heading">आपके वीडियो लोड हो रहे हैं...</h2>
@@ -42,7 +42,6 @@ footer{text-align:center;padding:20px;color:#64748b;font-size:12px}
     <p>डाउनलोड की सुविधा Admin द्वारा नियंत्रित होती है। एक पैकेज से अधिकतम एक वीडियो डाउनलोड किया जा सकता है।</p>
   </section>
 </main>
-
 <footer>CLIENTS KE VIDEO</footer>
 
 <script>
@@ -53,16 +52,49 @@ const FUNCTION_URL = SUPABASE_URL + "/functions/v1/clients-video";
 const params = new URLSearchParams(window.location.search);
 const linkToken = params.get("token");
 
+// Activity tracking variables
+let currentViewerKeyHash = null;
+let linkOpenedSuccessfully = false;
+let exitEventSent = false;
+
+// ग्राहक पेज छोड़ने पर Exit Activity रिकॉर्ड करें
+function sendExitActivity(){
+  if(!linkOpenedSuccessfully || !currentViewerKeyHash || !linkToken || exitEventSent){
+    return;
+  }
+
+  exitEventSent = true;
+
+  fetch(FUNCTION_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"activity",
+      token:linkToken,
+      viewer_key_hash:currentViewerKeyHash,
+      event_type:"exited"
+    }),
+    keepalive:true
+  }).catch(error=>{
+    console.log("Exit activity भेजने में समस्या:",error);
+  });
+}
+
+// पेज बंद करने, Back करने या दूसरे पेज पर जाने पर
+window.addEventListener("pagehide",sendExitActivity);
+
 function message(text,isError=false){
   const el=document.getElementById("message");
   el.textContent=text;
   el.style.background=isError?"#fef2f2":"#eff6ff";
   el.style.color=isError?"#991b1b":"#1e3a8a";
 }
+
 function hex(buffer){
   return Array.from(new Uint8Array(buffer))
     .map(b=>b.toString(16).padStart(2,"0")).join("");
 }
+
 async function getViewerKeyHash(){
   let key=localStorage.getItem("clients_video_viewer_key");
   if(!key){
@@ -73,6 +105,7 @@ async function getViewerKeyHash(){
   const digest=await crypto.subtle.digest("SHA-256",bytes);
   return hex(digest);
 }
+
 async function callFunction(action,data={}){
   const response=await fetch(FUNCTION_URL,{
     method:"POST",
@@ -92,7 +125,6 @@ function createVideoCard(video,index,downloadAllowed,downloadUsed,viewerKeyHash)
 
   const title=document.createElement("h3");
   title.textContent="वीडियो "+(index+1);
-
   const player=document.createElement("video");
   player.controls=true;
   player.playsInline=true;
@@ -129,7 +161,6 @@ function createVideoCard(video,index,downloadAllowed,downloadUsed,viewerKeyHash)
         document.body.appendChild(a);
         a.click();
         a.remove();
-
         message("डाउनलोड की अनुमति इस्तेमाल हो गई है। इस पैकेज से अब दूसरा वीडियो डाउनलोड नहीं किया जा सकता।");
         document.querySelectorAll(".download-button").forEach(x=>x.remove());
         btn.remove();
@@ -151,15 +182,22 @@ async function start(){
     message("यह वीडियो लिंक अधूरा है। कृपया Admin से सही लिंक लें।",true);
     return;
   }
+
   try{
     if(!window.crypto||!crypto.subtle||!crypto.randomUUID){
       throw new Error("इस ब्राउज़र में सुरक्षित पहचान सुविधा उपलब्ध नहीं है। Chrome के नए संस्करण में लिंक खोलें।");
     }
+
     const viewerKeyHash=await getViewerKeyHash();
+    currentViewerKeyHash=viewerKeyHash;
+
     const result=await callFunction("open",{
       token:linkToken,
       viewer_key_hash:viewerKeyHash
     });
+
+    // सफलतापूर्वक लिंक खुलने के बाद Exit रिकॉर्डिंग चालू
+    linkOpenedSuccessfully=true;
 
     document.getElementById("heading").textContent=result.title||"आपके वीडियो";
     const videos=result.videos||[];
@@ -185,11 +223,13 @@ async function start(){
         video,index,!!result.downloadAllowed,!!result.downloadUsed,viewerKeyHash
       ));
     });
+
   }catch(e){
     document.getElementById("heading").textContent="वीडियो नहीं खुल पाए";
     message(e.message+"\n\nकृपया लिंक और इंटरनेट कनेक्शन जाँचें। जरूरत होने पर Admin से नया लिंक लें।",true);
   }
 }
+
 start();
 </script>
 </body>
